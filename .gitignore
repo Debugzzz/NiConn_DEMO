@@ -1,0 +1,17 @@
+# Gradle
+.gradle/
+build/
+**/build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Android
+local.properties
+*.jks
+*.keystore
+
+# macOS
+.DS_Store
