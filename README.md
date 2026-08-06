@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.png" width="128" alt="NiConn_DEMO" />
+</p>
+
 # NiConn_DEMO
 
 尼康 Z50II 无线控制 Android 演示应用（第三方独立实现）。
