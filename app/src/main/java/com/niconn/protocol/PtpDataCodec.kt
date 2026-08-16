@@ -88,7 +88,7 @@ object PtpDataCodec {
         return littleEndianUShort(data, 4)
     }
 
-    /** 解析 ObjectInfo：固定 52 字节（AssociationDesc=4）+ 文件名/拍摄日期（UTF-16LE 空终止）。 */
+    /** 解析 ObjectInfo：固定 52 字节（AssociationDesc=4）+ 文件名/拍摄日期（PTP STRING）。 */
     fun parseObjectInfo(data: ByteArray): ObjectInfoData? {
         if (data.size < 52) return null
         val format = littleEndianUShort(data, 4)
@@ -98,7 +98,22 @@ object PtpDataCodec {
         var offset = 52
         fun readUtf16(): String? {
             if (offset >= data.size) return null
-            // 自动判断编码：奇数位为 0x00 → UTF-16LE；否则 ASCII/UTF-8
+            // PTP 规范 9.2 STRING：字符数(1B，含结尾空字符) + UTF-16LE。真机按此格式发送；
+            // 长度合法且以 0x0000 结尾时按规范解析，否则回退到裸空终止扫描（Mock/兼容格式）。
+            val nChars = data[offset].toInt() and 0xFF
+            if (nChars == 0) {
+                offset += 1
+                return null
+            }
+            val specEnd = offset + 1 + nChars * 2
+            if (specEnd <= data.size &&
+                data[specEnd - 2] == 0.toByte() && data[specEnd - 1] == 0.toByte()
+            ) {
+                val text = String(data, offset + 1, (nChars - 1) * 2, Charsets.UTF_16LE)
+                offset = specEnd
+                return text.ifBlank { null }
+            }
+            // 回退：自动判断编码（奇数位为 0x00 → UTF-16LE；否则 ASCII/UTF-8）
             val sampleLen = minOf(48, data.size - offset)
             var utf16 = sampleLen >= 2
             for (i in 1 until sampleLen step 2) {

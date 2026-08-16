@@ -117,6 +117,52 @@ class PtpDataCodecTest {
     }
 
     @Test
+    fun `parses object info with spec length-prefixed strings`() {
+        // PTP 规范 9.2 STRING：字符数(1B，含结尾空字符) + UTF-16LE（真机格式）
+        fun ptpString(text: String): ByteArray =
+            byteArrayOf((text.length + 1).toByte()) +
+                text.toByteArray(Charsets.UTF_16LE) + byteArrayOf(0, 0)
+        val header = byteArrayOf(
+            0, 0, 0, 1, // storage
+            0x01, 0x38, // format JPEG (LE)
+            0, 0, // protection
+            0x10, 0, 0, 0, // size 16 (LE)
+            0, 0, // thumb format
+            0, 0, 0, 0, // thumb size
+            0, 0, 0, 0, // thumb w
+            0, 0, 0, 0, // thumb h
+            0x80.toByte(), 2, 0, 0, // image w 640 (LE)
+            0xA8.toByte(), 1, 0, 0, // image h 424 (LE)
+            0, 0, 0, 0x18, // bit depth
+            0, 0, 0, 2, // parent
+            0, 0, // assoc type
+            0, 0, 0, 0, // assoc desc
+            0, 0, 0, 0, // seq
+        )
+        val data = header +
+            ptpString("DSC_0001.JPG") +
+            ptpString("20260816T121300") +
+            ptpString("20260816T121301") +
+            byteArrayOf(0) // keywords：空字符串
+        val info = PtpDataCodec.parseObjectInfo(data)
+        assertEquals("DSC_0001.JPG", info?.filename)
+        assertEquals("20260816T121300", info?.captureDate)
+    }
+
+    @Test
+    fun `parses spec strings with cjk filename`() {
+        fun ptpString(text: String): ByteArray =
+            byteArrayOf((text.length + 1).toByte()) +
+                text.toByteArray(Charsets.UTF_16LE) + byteArrayOf(0, 0)
+        val header = ByteArray(52)
+        header[4] = 0x00; header[5] = 0x30.toByte() // format 0x3000 NEF (LE)
+        val data = header + ptpString("照片_0001.NEF") + ptpString("20260816T121300")
+        val info = PtpDataCodec.parseObjectInfo(data)
+        assertEquals("照片_0001.NEF", info?.filename)
+        assertEquals("20260816T121300", info?.captureDate)
+    }
+
+    @Test
     fun `decodes device prop values`() {
         assertEquals(3200, DevicePropValueCodec.decodeUInt16(byteArrayOf(0x80.toByte(), 0x0C)))
         assertEquals(1_2500L, DevicePropValueCodec.decodeUInt32(byteArrayOf(0xD4.toByte(), 0x30, 0, 0)))
