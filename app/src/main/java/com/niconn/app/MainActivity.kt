@@ -23,10 +23,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(
                 colorScheme = lightColorScheme(
-                    primary = Color(0xFF007AFF),
+                    primary = Apple.blue,
                     onPrimary = Color.White,
-                    background = Color.White,
-                    surface = Color.White,
+                    error = Apple.red,
+                    background = Apple.background,
+                    onBackground = Apple.label,
+                    surface = Apple.surface,
+                    onSurface = Apple.label,
+                    onSurfaceVariant = Apple.secondaryLabel,
+                    outlineVariant = Apple.separator,
                 ),
             ) {
                 MainScreen(ConnectionViewModel(cameraService, SavedCameraStore(this)))

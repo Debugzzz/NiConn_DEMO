@@ -15,11 +15,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -42,8 +43,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.niconn.service.ConnectionState
 import com.niconn.service.PropSpecs
@@ -123,10 +126,13 @@ fun LiveViewScreen(viewModel: ConnectionViewModel) {
         error?.let {
             Text(
                 text = it,
-                color = Color(0xFFFF6B6B),
+                color = Color.White,
+                fontSize = 13.sp,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(8.dp),
+                    .padding(top = 16.dp)
+                    .background(Apple.scrimStrong, RoundedCornerShape(50))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
         Canvas(
@@ -206,23 +212,36 @@ fun LiveViewScreen(viewModel: ConnectionViewModel) {
             ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = landscape)
         }
         Box(
-            Modifier
+            modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(8.dp)
-                .background(Color(0x99000000), CircleShape)
-                .clickable { landscape = !landscape }
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(12.dp)
+                .size(34.dp)
+                .background(Apple.scrim, CircleShape)
+                .clickable { landscape = !landscape },
+            contentAlignment = Alignment.Center,
         ) {
-            Text(if (landscape) "竖屏" else "横屏", color = Color.White)
+            Icon(
+                Icons.Filled.ScreenRotation,
+                contentDescription = if (landscape) "切换竖屏" else "切换横屏",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp),
+            )
         }
         if (!isLive) {
-            Button(
-                onClick = { lvViewModel.start() },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A1A1A)),
-                shape = CircleShape,
-                modifier = Modifier.align(Alignment.Center),
+            Box(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .background(Apple.scrimStrong, RoundedCornerShape(50))
+                    .border(1.dp, Apple.hairlineOnDark, RoundedCornerShape(50))
+                    .clickable { lvViewModel.start() }
+                    .padding(horizontal = 28.dp, vertical = 14.dp),
             ) {
-                Text("开始取景")
+                Text(
+                    "开始取景",
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }
@@ -258,21 +277,30 @@ private fun PropPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        Button(
-            onClick = { expanded = true },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xCC1A1A1A),
-                contentColor = Color.White,
-            ),
-            shape = CircleShape,
-            modifier = Modifier.graphicsLayer { if (rotated) rotationZ = 90f },
+        Box(
+            modifier = Modifier
+                .graphicsLayer { if (rotated) rotationZ = 90f }
+                .background(Apple.scrim, CircleShape)
+                .border(0.5.dp, Apple.hairlineOnDark, CircleShape)
+                .clickable { expanded = true }
+                .padding(horizontal = 14.dp, vertical = 7.dp),
         ) {
-            Column {
-                Text(title, style = MaterialTheme.typography.labelSmall)
-                Text(current)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(title, color = Color(0xB3FFFFFF), fontSize = 11.sp)
+                Text(
+                    current,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(14.dp),
+        ) {
             values.forEach { value ->
                 DropdownMenuItem(
                     text = { Text(label(value)) },
