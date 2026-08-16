@@ -31,6 +31,12 @@ class AppSettingsStore(context: Context) {
     private val _gridColumns = MutableStateFlow(prefs.getInt(KEY_GRID_COLUMNS, 3))
     val gridColumns: StateFlow<Int> = _gridColumns
 
+    /** 对焦坐标换算系数（相机 Whole 坐标 / 取景位图像素）；0 表示未标定。 */
+    private val _focusFactorX = MutableStateFlow(prefs.getFloat(KEY_FOCUS_FX, 0f))
+    val focusFactorX: StateFlow<Float> = _focusFactorX
+    private val _focusFactorY = MutableStateFlow(prefs.getFloat(KEY_FOCUS_FY, 0f))
+    val focusFactorY: StateFlow<Float> = _focusFactorY
+
     /** LiveView 轮询间隔（毫秒），供控制器实时读取。 */
     val frameIntervalMs: Long get() = _frameRate.value.intervalMs
 
@@ -54,10 +60,21 @@ class AppSettingsStore(context: Context) {
         prefs.edit().putInt(KEY_GRID_COLUMNS, columns).apply()
     }
 
+    fun setFocusFactors(x: Float, y: Float) {
+        _focusFactorX.value = x
+        _focusFactorY.value = y
+        prefs.edit()
+            .putFloat(KEY_FOCUS_FX, x)
+            .putFloat(KEY_FOCUS_FY, y)
+            .apply()
+    }
+
     private companion object {
         const val KEY_FRAME_RATE = "frame_rate"
         const val KEY_DEFAULT_LANDSCAPE = "default_landscape"
         const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         const val KEY_GRID_COLUMNS = "grid_columns"
+        const val KEY_FOCUS_FX = "focus_factor_x"
+        const val KEY_FOCUS_FY = "focus_factor_y"
     }
 }

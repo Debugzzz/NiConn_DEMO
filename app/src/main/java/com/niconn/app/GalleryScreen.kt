@@ -1,6 +1,7 @@
 package com.niconn.app
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -8,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -43,6 +46,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -52,7 +56,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -186,27 +192,68 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                         }
                     }
                 }
-                // 最右侧滚动进度条
-                Canvas(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(3.dp)
-                        .padding(vertical = 8.dp),
-                ) {
-                    val info = galleryViewModel.gridState.layoutInfo
-                    val total = info.totalItemsCount
-                    val visible = info.visibleItemsInfo.size
-                    if (total > 0 && visible > 0 && total > visible) {
-                        val thumbH = (size.height * visible / total).coerceAtLeast(24f)
-                        val progress = (info.visibleItemsInfo.firstOrNull()?.index ?: 0).toFloat() /
+                // 右侧快速滚动条：滚动时淡入，可按住上下拖动定位
+                val gridState = galleryViewModel.gridState
+                val layoutInfo = gridState.layoutInfo
+                val total = layoutInfo.totalItemsCount
+                val visible = layoutInfo.visibleItemsInfo.size
+                if (total > 0 && visible > 0 && total > visible) {
+                    var trackHeightPx by remember { mutableStateOf(0f) }
+                    var dragging by remember { mutableStateOf(false) }
+                    var thumbCenterPx by remember { mutableStateOf(0f) }
+                    val barAlpha by animateFloatAsState(
+                        targetValue = if (dragging || gridState.isScrollInProgress) 1f else 0f,
+                        label = "scrollbar",
+                    )
+                    val scope = rememberCoroutineScope()
+                    val thumbH = (trackHeightPx * visible / total).coerceAtLeast(48f)
+                    val trackRange = (trackHeightPx - thumbH).coerceAtLeast(1f)
+                    val progress = (
+                        (layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0).toFloat() /
                             (total - visible)
-                        val y = (size.height - thumbH) * progress
-                        drawRoundRect(
-                            color = Apple.blue,
-                            topLeft = Offset(0f, y),
-                            size = Size(size.width, thumbH),
-                            cornerRadius = CornerRadius(size.width / 2f),
+                        ).coerceIn(0f, 1f)
+                    if (!dragging) thumbCenterPx = thumbH / 2f + trackRange * progress
+                    fun scrollToProgress(p: Float) {
+                        val maxIdx = total - visible
+                        val idx = (p * maxIdx).toInt().coerceIn(0, maxIdx)
+                        val avg = layoutInfo.visibleItemsInfo.firstOrNull()?.size?.height ?: 0
+                        val frac = p * maxIdx - idx
+                        scope.launch { gridState.scrollToItem(idx, (frac * avg).toInt()) }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .fillMaxHeight()
+                            .width(24.dp)
+                            .padding(vertical = 8.dp)
+                            .onSizeChanged { trackHeightPx = it.height.toFloat() }
+                            .pointerInput(total, visible, trackHeightPx) {
+                                detectVerticalDragGestures(
+                                    onDragStart = { offset ->
+                                        dragging = true
+                                        val p = ((offset.y - thumbH / 2f).coerceIn(0f, trackRange)) / trackRange
+                                        thumbCenterPx = thumbH / 2f + trackRange * p
+                                        scrollToProgress(p)
+                                    },
+                                    onDragEnd = { dragging = false },
+                                    onDragCancel = { dragging = false },
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    thumbCenterPx = (thumbCenterPx + dragAmount)
+                                        .coerceIn(thumbH / 2f, thumbH / 2f + trackRange)
+                                    scrollToProgress((thumbCenterPx - thumbH / 2f) / trackRange)
+                                }
+                            },
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = 6.dp)
+                                .width(4.dp)
+                                .height(with(LocalDensity.current) { thumbH.toDp() })
+                                .graphicsLayer { translationY = thumbCenterPx - thumbH / 2f }
+                                .alpha(barAlpha)
+                                .background(Apple.blue, RoundedCornerShape(2.dp)),
                         )
                     }
                 }

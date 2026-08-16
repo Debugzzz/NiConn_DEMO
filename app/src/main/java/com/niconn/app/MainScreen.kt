@@ -16,6 +16,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,46 +40,54 @@ enum class AppTab(val label: String, val icon: ImageVector) {
 fun MainScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
     var tab by rememberSaveable { mutableStateOf(AppTab.CONNECTION) }
     var showSettings by remember { mutableStateOf(false) }
+    var hideBottomBar by remember { mutableStateOf(false) }
+    // 离开取景页时恢复导航栏
+    LaunchedEffect(tab) {
+        if (tab != AppTab.LIVE_VIEW) hideBottomBar = false
+    }
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Apple.background,
             bottomBar = {
-                Box {
-                    // iOS Tab Bar 顶部发丝分隔线
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(0.5.dp)
-                            .background(Apple.separator),
-                    )
-                    NavigationBar(
-                        containerColor = Apple.surface,
-                        tonalElevation = 0.dp,
-                    ) {
-                        AppTab.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = tab == item,
-                                onClick = { tab = item },
-                                // iOS Tab Bar 无胶囊背景，仅图标/文字变蓝
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Apple.blue,
-                                    selectedTextColor = Apple.blue,
-                                    indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                                    unselectedIconColor = Apple.secondaryLabel,
-                                    unselectedTextColor = Apple.secondaryLabel,
-                                ),
-                                icon = {
-                                    Icon(item.icon, contentDescription = item.label)
-                                },
-                                label = {
-                                    Text(item.label, fontSize = 10.sp)
-                                },
-                            )
+                if (!hideBottomBar) {
+                    Box {
+                        // iOS Tab Bar 顶部发丝分隔线
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(0.5.dp)
+                                .background(Apple.separator),
+                        )
+                        NavigationBar(
+                            containerColor = Apple.surface,
+                            tonalElevation = 0.dp,
+                        ) {
+                            AppTab.entries.forEach { item ->
+                                NavigationBarItem(
+                                    selected = tab == item,
+                                    onClick = { tab = item },
+                                    // iOS Tab Bar 无胶囊背景，仅图标/文字变蓝
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = Apple.blue,
+                                        selectedTextColor = Apple.blue,
+                                        indicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                                        unselectedIconColor = Apple.secondaryLabel,
+                                        unselectedTextColor = Apple.secondaryLabel,
+                                    ),
+                                    icon = {
+                                        Icon(item.icon, contentDescription = item.label)
+                                    },
+                                    label = {
+                                        Text(item.label, fontSize = 10.sp)
+                                    },
+                                )
+                            }
                         }
                     }
                 }
             },
         ) { innerPadding ->
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -90,7 +99,11 @@ fun MainScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                         viewModel,
                         onOpenSettings = { showSettings = true },
                     )
-                    AppTab.LIVE_VIEW -> LiveViewScreen(viewModel, settings)
+                    AppTab.LIVE_VIEW -> LiveViewScreen(
+                        viewModel,
+                        settings,
+                        onFullscreenChanged = { hideBottomBar = it },
+                    )
                     AppTab.GALLERY -> GalleryScreen(viewModel, settings)
                 }
             }

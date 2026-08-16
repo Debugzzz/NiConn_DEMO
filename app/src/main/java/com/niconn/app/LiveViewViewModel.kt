@@ -87,6 +87,13 @@ class LiveViewViewModel(
     private var focusJob: Job? = null
     private var lastSentPoint: Pair<Int, Int>? = null
 
+    // 对焦坐标换算系数（相机 Whole 坐标 / 位图像素）：viewInfo 初始化 + 相机反馈校准
+    private var factorX = settings?.focusFactorX?.value ?: 0f
+    private var factorY = settings?.focusFactorY?.value ?: 0f
+    private val _focusFactors = MutableStateFlow(factorX to factorY)
+    val focusFactors: StateFlow<Pair<Float, Float>> = _focusFactors
+    private var feedbackPending = false
+
     fun start() {
         val session = getSession()
         if (session == null) {
@@ -106,10 +113,39 @@ class LiveViewViewModel(
                 liveFrame?.let {
                     _afFrame.value = it.af
                     _viewInfo.value = it.viewInfo
-                    it.af?.let { af ->
-                        com.niconn.AppLog.d("LV", "af=${af.hCenter},${af.vCenter} size=${af.hSize}x${af.vSize} lastSent=$lastSentPoint")
-                    }
                     _frame.value = BitmapFactory.decodeByteArray(it.jpeg, 0, it.jpeg.size)
+                    // 用 viewInfo 初始化换算系数（whole 坐标 / 位图像素）
+                    it.viewInfo?.let { vi ->
+                        val bmp = _frame.value
+                        if (bmp != null && (factorX == 0f || factorY == 0f)) {
+                            factorX = vi.wholeWidth.toFloat() / bmp.width
+                            factorY = vi.wholeHeight.toFloat() / bmp.height
+                            _focusFactors.value = factorX to factorY
+                            settings?.setFocusFactors(factorX, factorY)
+                            com.niconn.AppLog.d(
+                                "FOCUS",
+                                "init factors x=$factorX y=$factorY whole=${vi.wholeWidth}x${vi.wholeHeight} bmp=${bmp.width}x${bmp.height}",
+                            )
+                        }
+                    }
+                    // 相机反馈的实际对焦点 → 自动校准系数（每次点按校准一次）
+                    it.af?.let { af ->
+                        val sent = lastSentPoint
+                        if (feedbackPending && af.valid && sent != null && sent.first > 0 && sent.second > 0) {
+                            val impliedX = (af.hCenter / sent.first.toFloat()).coerceIn(0.5f, 20f)
+                            val impliedY = (af.vCenter / sent.second.toFloat()).coerceIn(0.5f, 20f)
+                            factorX = if (factorX == 0f) impliedX else factorX * 0.5f + impliedX * 0.5f
+                            factorY = if (factorY == 0f) impliedY else factorY * 0.5f + impliedY * 0.5f
+                            _focusFactors.value = factorX to factorY
+                            settings?.setFocusFactors(factorX, factorY)
+                            com.niconn.AppLog.d(
+                                "FOCUS",
+                                "calibrated implied=($impliedX,$impliedY) now=($factorX,$factorY) " +
+                                    "af=(${af.hCenter},${af.vCenter}) sent=$sent",
+                            )
+                            feedbackPending = false
+                        }
+                    }
                 }
             }
         }
@@ -121,6 +157,12 @@ class LiveViewViewModel(
                 props.supportedValues(PropSpecs.APERTURE).takeIf { it.isNotEmpty() }?.let { _apertureOptions.value = it }
                 props.supportedValues(PropSpecs.EV).takeIf { it.isNotEmpty() }?.let { _evOptions.value = it }
                 props.supportedValues(PropSpecs.WHITE_BALANCE).takeIf { it.isNotEmpty() }?.let { _wbOptions.value = it }
+                com.niconn.AppLog.d(
+                    "PROPS",
+                    "camera enums: iso=${_isoOptions.value.size} shutter=${_shutterOptions.value.size} " +
+                        "aperture=${_apertureOptions.value.size} ev=${_evOptions.value.size} wb=${_wbOptions.value.size} " +
+                        "evValues=${_evOptions.value} wbValues=${_wbOptions.value.map { "0x%04X".format(it) }}",
+                )
                 _iso.value = props.read(PropSpecs.ISO)?.toString() ?: "--"
                 _shutter.value = formatShutter(props.read(PropSpecs.SHUTTER))
                 _aperture.value = formatAperture(props.read(PropSpecs.APERTURE))
@@ -170,10 +212,13 @@ class LiveViewViewModel(
     }
 
     fun tapFocus(xPx: Int, yPx: Int) {
-        // 实测：7.5x 略偏左下、8.7x 略偏右下、AF 框 290 单位≈36px → 缩放系数 8.0
-        val wholeX = xPx * 8
-        val wholeY = yPx * 8
+        // 换算系数：已校准用校准值，未校准用实测经验值 8.0；点按后由相机反馈自动校准
+        val fx = if (factorX > 0f) factorX else 8f
+        val fy = if (factorY > 0f) factorY else 8f
+        val wholeX = (xPx * fx).toInt()
+        val wholeY = (yPx * fy).toInt()
         lastSentPoint = xPx to yPx
+        feedbackPending = true
         _focusPoint.value = xPx to yPx
         focusJob?.cancel()
         val session = getSession() ?: return

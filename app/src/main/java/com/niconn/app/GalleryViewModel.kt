@@ -33,6 +33,9 @@ class GalleryViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    /** 会话内缓存：句柄 → 缩略图/格式。刷新只对新增句柄回源，加速二次刷新。 */
+    private val cache = LinkedHashMap<Int, GalleryItem>()
+
     fun refresh() {
         val session = getSession()
         if (session == null) {
@@ -44,28 +47,27 @@ class GalleryViewModel(
             try {
                 val controller = GalleryController(session)
                 val handles = controller.listHandles()
-                _items.value = handles.map { GalleryItem(it) }
-                // 触发第一张 ObjectInfo 原始字节日志，便于校准文件名/格式解析
-                handles.firstOrNull()?.let { controller.objectInfo(it) }
+                _items.value = handles.map { cache[it] ?: GalleryItem(it) }
+                var fetched = 0
                 handles.forEach { handle ->
-                    val label = try {
-                        when (controller.objectFormat(handle)) {
-                            0x3000, 0x3800 -> "NEF"
-                            0x3801 -> "JPEG"
-                            else -> null
-                        }
+                    if (cache.containsKey(handle)) return@forEach
+                    val info = try {
+                        controller.objectInfo(handle)
                     } catch (e: Exception) {
                         null
                     }
-                    val thumb = controller.loadThumb(handle)?.let { decodeSampled(it, 512) }
-                    _items.value = _items.value.map { item ->
-                        if (item.handle == handle) {
-                            item.copy(thumbnail = thumb, formatLabel = label)
-                        } else {
-                            item
-                        }
+                    val label = when (info?.format) {
+                        0x3000, 0x3800 -> "NEF"
+                        0x3801 -> "JPEG"
+                        else -> null
                     }
+                    val thumb = controller.loadThumb(handle)?.let { decodeSampled(it, 512) }
+                    val item = GalleryItem(handle, thumb, label)
+                    cache[handle] = item
+                    fetched++
+                    _items.value = _items.value.map { if (it.handle == handle) item else it }
                 }
+                com.niconn.AppLog.d("GAL", "refresh total=${handles.size} fetched=$fetched cachedSkip=${handles.size - fetched}")
             } catch (e: Exception) {
                 _error.value = "读取相册失败：${e.message}"
             }
@@ -109,9 +111,12 @@ class GalleryViewModel(
         viewModelScope.launch {
             try {
                 val controller = GalleryController(session)
-                _selection.value.forEach { controller.delete(it) }
+                val deleted = _selection.value.filter { controller.delete(it) }.toSet()
+                // 本地直接移除已删项，不做整册刷新（照片多时太慢）
+                _items.value = _items.value.filter { it.handle !in deleted }
+                deleted.forEach { cache.remove(it) }
                 _selection.value = emptySet()
-                refresh()
+                com.niconn.AppLog.d("GAL", "deleted=${deleted.size} remaining=${_items.value.size}")
             } catch (e: Exception) {
                 _error.value = "删除失败：${e.message}"
             }

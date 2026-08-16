@@ -41,14 +41,14 @@ class GalleryController(private val session: PtpIpSession) {
         if (response.code != NkOps.OK) {
             if (!errorLogged) {
                 errorLogged = true
-                println("NiConnGal fmt code=0x%04X handle=$handle".format(response.code))
+                com.niconn.AppLog.d("GAL", "fmt code=0x%04X handle=$handle".format(response.code))
             }
             return null
         }
         response.data?.let { data ->
             if (!rawLogged) {
                 rawLogged = true
-                println("NiConnGal raw=" + data.take(96).joinToString("") { "%02x".format(it) })
+                com.niconn.AppLog.d("GAL", "raw=" + data.take(96).joinToString("") { "%02x".format(it) })
             }
         }
         return response.data?.let { PtpDataCodec.parseObjectFormat(it) }
@@ -60,7 +60,7 @@ class GalleryController(private val session: PtpIpSession) {
         if (response.code != NkOps.OK) {
             if (!errorLogged) {
                 errorLogged = true
-                println("NiConnGal objInfo code=0x%04X handle=$handle".format(response.code))
+                com.niconn.AppLog.d("GAL", "objInfo code=0x%04X handle=$handle".format(response.code))
             }
             return null
         }
@@ -68,7 +68,7 @@ class GalleryController(private val session: PtpIpSession) {
             ?.also { data ->
                 if (!rawLogged) {
                     rawLogged = true
-                    println("NiConnGal raw=" + data.take(96).joinToString("") { "%02x".format(it) })
+                    com.niconn.AppLog.d("GAL", "raw=" + data.take(96).joinToString("") { "%02x".format(it) })
                 }
             }
             ?.let { PtpDataCodec.parseObjectInfo(it) }
