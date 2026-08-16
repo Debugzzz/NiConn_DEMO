@@ -149,7 +149,7 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = if (landscape) 88.dp else 170.dp),
+                .padding(bottom = 170.dp),
         ) {
             val bitmap = displayFrame ?: return@Canvas
             val point = focusPoint ?: return@Canvas
@@ -187,51 +187,52 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                 style = Stroke(width = 6f),
             )
         }
+        // 控件区横竖屏统一为竖屏两行布局；横屏时整体旋转 90° 贴到右侧
+        var controlsSize by remember { mutableStateOf(IntSize.Zero) }
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 16.dp),
+                .padding(horizontal = 12.dp, vertical = 16.dp)
+                .onSizeChanged { controlsSize = it }
+                .graphicsLayer {
+                    if (landscape && controlsSize != IntSize.Zero) {
+                        rotationZ = 90f
+                        // 旋转后包围盒宽高互换，向上平移使底边贴回原位置
+                        translationY = -(controlsSize.width - controlsSize.height) / 2f
+                    }
+                },
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 竖屏：曝光补偿/白平衡单独一行，避免六个控件挤在一行
-            if (!landscape) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PropPicker(
+                    "曝光",
+                    lvViewModel.ev.collectAsState().value,
+                    evOptions,
+                    label = { v -> formatEvLabel(v) },
                 ) {
-                    PropPicker(
-                        "曝光",
-                        lvViewModel.ev.collectAsState().value,
-                        evOptions,
-                        label = { v -> formatEvLabel(v) },
-                        rotated = false,
-                    ) {
-                        lvViewModel.setProp(PropSpecs.EV, it)
-                    }
-                    PropPicker(
-                        "白平衡",
-                        lvViewModel.wb.collectAsState().value,
-                        wbOptions,
-                        label = { v -> wbLabel(v) },
-                        rotated = false,
-                    ) {
-                        lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
-                    }
+                    lvViewModel.setProp(PropSpecs.EV, it)
+                }
+                PropPicker(
+                    "白平衡",
+                    lvViewModel.wb.collectAsState().value,
+                    wbOptions,
+                    label = { v -> wbLabel(v) },
+                ) {
+                    lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
                 }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = if (landscape) {
-                    Arrangement.spacedBy(22.dp)
-                } else {
-                    Arrangement.SpaceEvenly
-                },
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions, rotated = landscape) {
+                PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions) {
                     lvViewModel.setProp(PropSpecs.ISO, it)
                 }
                 PropPicker(
@@ -239,7 +240,6 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     lvViewModel.shutter.collectAsState().value,
                     shutterOptions,
                     label = { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" },
-                    rotated = landscape,
                 ) {
                     lvViewModel.setProp(PropSpecs.SHUTTER, it)
                 }
@@ -248,31 +248,10 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     lvViewModel.aperture.collectAsState().value,
                     apertureOptions,
                     label = { v -> "f/${v / 100.0}" },
-                    rotated = landscape,
                 ) {
                     lvViewModel.setProp(PropSpecs.APERTURE, it)
                 }
-                if (landscape) {
-                    PropPicker(
-                        "曝光",
-                        lvViewModel.ev.collectAsState().value,
-                        evOptions,
-                        label = { v -> formatEvLabel(v) },
-                        rotated = true,
-                    ) {
-                        lvViewModel.setProp(PropSpecs.EV, it)
-                    }
-                    PropPicker(
-                        "白平衡",
-                        lvViewModel.wb.collectAsState().value,
-                        wbOptions,
-                        label = { v -> wbLabel(v) },
-                        rotated = true,
-                    ) {
-                        lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
-                    }
-                }
-                ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = landscape)
+                ShutterButton(onClick = { lvViewModel.takePhoto() })
             }
         }
         Box(
@@ -312,11 +291,10 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
 }
 
 @Composable
-private fun ShutterButton(onClick: () -> Unit, rotated: Boolean) {
+private fun ShutterButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(76.dp)
-            .graphicsLayer { if (rotated) rotationZ = 90f }
             .border(4.dp, Color.White, CircleShape)
             .clickable(onClick = onClick)
             .padding(12.dp),
@@ -336,14 +314,12 @@ private fun PropPicker(
     current: String,
     values: List<Long>,
     label: (Long) -> String = { it.toString() },
-    rotated: Boolean = false,
     onSelect: (Long) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Box(
             modifier = Modifier
-                .graphicsLayer { if (rotated) rotationZ = 90f }
                 .background(Apple.scrim, CircleShape)
                 .border(0.5.dp, Apple.hairlineOnDark, CircleShape)
                 .clickable { expanded = true }
