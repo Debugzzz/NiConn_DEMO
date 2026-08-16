@@ -17,6 +17,33 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.util.Locale
+
+/** 曝光补偿值（EV×1000）转显示文本，如 +333 -> "+0.3"。 */
+internal fun formatEvLabel(v: Long?): String = when {
+    v == null -> "--"
+    v == 0L -> "0.0"
+    else -> String.format(Locale.US, "%+.1f", v / 1000.0)
+}
+
+/** 白平衡枚举值转中文名（Z50II MTP 规范 6.5.1.4）。 */
+internal fun wbLabel(v: Long?): String {
+    if (v == null) return "--"
+    return WB_NAMES[v] ?: "0x%04X".format(v)
+}
+
+private val WB_NAMES = mapOf(
+    0x0002L to "自动",
+    0x0004L to "日光",
+    0x0005L to "荧光灯",
+    0x0006L to "白炽灯",
+    0x0007L to "闪光",
+    0x8010L to "阴天",
+    0x8011L to "背阴",
+    0x8012L to "色温",
+    0x8013L to "手动预设",
+    0x8016L to "自然光自动",
+)
 
 class LiveViewViewModel(
     private val getSession: () -> PtpIpSession?,
@@ -30,12 +57,22 @@ class LiveViewViewModel(
     val shutter: StateFlow<String> = _shutter
     private val _aperture = MutableStateFlow("--")
     val aperture: StateFlow<String> = _aperture
+    private val _ev = MutableStateFlow("0.0")
+    val ev: StateFlow<String> = _ev
+    private val _wb = MutableStateFlow("--")
+    val wb: StateFlow<String> = _wb
     private val _isoOptions = MutableStateFlow(listOf(100L, 200L, 400L, 800L, 1600L, 3200L))
     val isoOptions: StateFlow<List<Long>> = _isoOptions
     private val _shutterOptions = MutableStateFlow(listOf(1_0000L, 5_000L, 2_500L, 1_250L, 625L, 313L, 156L))
     val shutterOptions: StateFlow<List<Long>> = _shutterOptions
     private val _apertureOptions = MutableStateFlow(listOf(280L, 400L, 560L, 800L, 1100L))
     val apertureOptions: StateFlow<List<Long>> = _apertureOptions
+    private val _evOptions = MutableStateFlow(
+        (-15..15).map { it.toLong() * 333 }.filter { it in -5000..5000 },
+    )
+    val evOptions: StateFlow<List<Long>> = _evOptions
+    private val _wbOptions = MutableStateFlow(WB_NAMES.keys.toList())
+    val wbOptions: StateFlow<List<Long>> = _wbOptions
     private val _isLive = MutableStateFlow(false)
     val isLive: StateFlow<Boolean> = _isLive
     private val _error = MutableStateFlow<String?>(null)
@@ -82,9 +119,13 @@ class LiveViewViewModel(
                 props.supportedValues(PropSpecs.ISO).takeIf { it.isNotEmpty() }?.let { _isoOptions.value = it }
                 props.supportedValues(PropSpecs.SHUTTER).takeIf { it.isNotEmpty() }?.let { _shutterOptions.value = it }
                 props.supportedValues(PropSpecs.APERTURE).takeIf { it.isNotEmpty() }?.let { _apertureOptions.value = it }
+                props.supportedValues(PropSpecs.EV).takeIf { it.isNotEmpty() }?.let { _evOptions.value = it }
+                props.supportedValues(PropSpecs.WHITE_BALANCE).takeIf { it.isNotEmpty() }?.let { _wbOptions.value = it }
                 _iso.value = props.read(PropSpecs.ISO)?.toString() ?: "--"
                 _shutter.value = formatShutter(props.read(PropSpecs.SHUTTER))
                 _aperture.value = formatAperture(props.read(PropSpecs.APERTURE))
+                _ev.value = formatEvLabel(props.read(PropSpecs.EV))
+                _wb.value = wbLabel(props.read(PropSpecs.WHITE_BALANCE))
             } catch (e: Exception) {
                 _error.value = "读取参数失败：${e.message}"
             }
@@ -215,6 +256,8 @@ class LiveViewViewModel(
                     PropSpecs.ISO -> _iso.value = props.read(PropSpecs.ISO)?.toString() ?: value.toString()
                     PropSpecs.SHUTTER -> _shutter.value = formatShutter(props.read(PropSpecs.SHUTTER))
                     PropSpecs.APERTURE -> _aperture.value = formatAperture(props.read(PropSpecs.APERTURE))
+                    PropSpecs.EV -> _ev.value = formatEvLabel(props.read(PropSpecs.EV))
+                    PropSpecs.WHITE_BALANCE -> _wb.value = wbLabel(props.read(PropSpecs.WHITE_BALANCE))
                     else -> Unit
                 }
                 _error.value = null

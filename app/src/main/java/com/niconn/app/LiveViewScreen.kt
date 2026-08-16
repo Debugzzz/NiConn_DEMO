@@ -67,6 +67,8 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
     val isoOptions by lvViewModel.isoOptions.collectAsState()
     val shutterOptions by lvViewModel.shutterOptions.collectAsState()
     val apertureOptions by lvViewModel.apertureOptions.collectAsState()
+    val evOptions by lvViewModel.evOptions.collectAsState()
+    val wbOptions by lvViewModel.wbOptions.collectAsState()
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var landscape by rememberSaveable { mutableStateOf(settings.defaultLandscape.value) }
     val displayFrame = remember(landscape, frame) {
@@ -147,7 +149,7 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 88.dp),
+                .padding(bottom = if (landscape) 88.dp else 170.dp),
         ) {
             val bitmap = displayFrame ?: return@Canvas
             val point = focusPoint ?: return@Canvas
@@ -185,40 +187,93 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                 style = Stroke(width = 6f),
             )
         }
-        Row(
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 16.dp),
-            horizontalArrangement = if (landscape) {
-                Arrangement.spacedBy(22.dp)
-            } else {
-                Arrangement.SpaceEvenly
-            },
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions, rotated = landscape) {
-                lvViewModel.setProp(PropSpecs.ISO, it)
+            // 竖屏：曝光补偿/白平衡单独一行，避免六个控件挤在一行
+            if (!landscape) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PropPicker(
+                        "曝光",
+                        lvViewModel.ev.collectAsState().value,
+                        evOptions,
+                        label = { v -> formatEvLabel(v) },
+                        rotated = false,
+                    ) {
+                        lvViewModel.setProp(PropSpecs.EV, it)
+                    }
+                    PropPicker(
+                        "白平衡",
+                        lvViewModel.wb.collectAsState().value,
+                        wbOptions,
+                        label = { v -> wbLabel(v) },
+                        rotated = false,
+                    ) {
+                        lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
+                    }
+                }
             }
-            PropPicker(
-                "快门",
-                lvViewModel.shutter.collectAsState().value,
-                shutterOptions,
-                label = { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" },
-                rotated = landscape,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (landscape) {
+                    Arrangement.spacedBy(22.dp)
+                } else {
+                    Arrangement.SpaceEvenly
+                },
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                lvViewModel.setProp(PropSpecs.SHUTTER, it)
+                PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions, rotated = landscape) {
+                    lvViewModel.setProp(PropSpecs.ISO, it)
+                }
+                PropPicker(
+                    "快门",
+                    lvViewModel.shutter.collectAsState().value,
+                    shutterOptions,
+                    label = { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" },
+                    rotated = landscape,
+                ) {
+                    lvViewModel.setProp(PropSpecs.SHUTTER, it)
+                }
+                PropPicker(
+                    "光圈",
+                    lvViewModel.aperture.collectAsState().value,
+                    apertureOptions,
+                    label = { v -> "f/${v / 100.0}" },
+                    rotated = landscape,
+                ) {
+                    lvViewModel.setProp(PropSpecs.APERTURE, it)
+                }
+                if (landscape) {
+                    PropPicker(
+                        "曝光",
+                        lvViewModel.ev.collectAsState().value,
+                        evOptions,
+                        label = { v -> formatEvLabel(v) },
+                        rotated = true,
+                    ) {
+                        lvViewModel.setProp(PropSpecs.EV, it)
+                    }
+                    PropPicker(
+                        "白平衡",
+                        lvViewModel.wb.collectAsState().value,
+                        wbOptions,
+                        label = { v -> wbLabel(v) },
+                        rotated = true,
+                    ) {
+                        lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
+                    }
+                }
+                ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = landscape)
             }
-            PropPicker(
-                "光圈",
-                lvViewModel.aperture.collectAsState().value,
-                apertureOptions,
-                label = { v -> "f/${v / 100.0}" },
-                rotated = landscape,
-            ) {
-                lvViewModel.setProp(PropSpecs.APERTURE, it)
-            }
-            ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = landscape)
         }
         Box(
             modifier = Modifier

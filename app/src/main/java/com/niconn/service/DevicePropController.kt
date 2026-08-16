@@ -18,6 +18,7 @@ object PropSpecs {
     val SHUTTER = PropSpec(0x500D, PropType.UINT32)
     val APERTURE = PropSpec(0x5007, PropType.UINT16)
     val EV = PropSpec(0x5010, PropType.INT16)
+    val WHITE_BALANCE = PropSpec(0x5005, PropType.UINT16)
     val AF_AREA_MODE = PropSpec(0xD05D, PropType.UINT16)
 }
 
