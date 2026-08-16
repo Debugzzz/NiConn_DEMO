@@ -187,22 +187,13 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                 style = Stroke(width = 6f),
             )
         }
-        // 控件区横竖屏统一为竖屏两行布局；横屏时整体旋转 90° 贴到右侧
-        var controlsSize by remember { mutableStateOf(IntSize.Zero) }
+        // 控件区横竖屏统一为竖屏两行布局；横屏时各控件自身原地旋转
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 16.dp)
-                .onSizeChanged { controlsSize = it }
-                .graphicsLayer {
-                    if (landscape && controlsSize != IntSize.Zero) {
-                        rotationZ = 90f
-                        // 旋转后包围盒宽高互换，向上平移使底边贴回原位置
-                        translationY = -(controlsSize.width - controlsSize.height) / 2f
-                    }
-                },
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 12.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(if (landscape) 24.dp else 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(
@@ -215,6 +206,7 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     lvViewModel.ev.collectAsState().value,
                     evOptions,
                     label = { v -> formatEvLabel(v) },
+                    rotated = landscape,
                 ) {
                     lvViewModel.setProp(PropSpecs.EV, it)
                 }
@@ -223,6 +215,7 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     lvViewModel.wb.collectAsState().value,
                     wbOptions,
                     label = { v -> wbLabel(v) },
+                    rotated = landscape,
                 ) {
                     lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
                 }
@@ -232,7 +225,7 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions) {
+                PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions, rotated = landscape) {
                     lvViewModel.setProp(PropSpecs.ISO, it)
                 }
                 PropPicker(
@@ -240,6 +233,7 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     lvViewModel.shutter.collectAsState().value,
                     shutterOptions,
                     label = { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" },
+                    rotated = landscape,
                 ) {
                     lvViewModel.setProp(PropSpecs.SHUTTER, it)
                 }
@@ -248,10 +242,11 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     lvViewModel.aperture.collectAsState().value,
                     apertureOptions,
                     label = { v -> "f/${v / 100.0}" },
+                    rotated = landscape,
                 ) {
                     lvViewModel.setProp(PropSpecs.APERTURE, it)
                 }
-                ShutterButton(onClick = { lvViewModel.takePhoto() })
+                ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = landscape)
             }
         }
         Box(
@@ -291,10 +286,11 @@ fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
 }
 
 @Composable
-private fun ShutterButton(onClick: () -> Unit) {
+private fun ShutterButton(onClick: () -> Unit, rotated: Boolean) {
     Box(
         modifier = Modifier
             .size(76.dp)
+            .graphicsLayer { if (rotated) rotationZ = 90f }
             .border(4.dp, Color.White, CircleShape)
             .clickable(onClick = onClick)
             .padding(12.dp),
@@ -314,12 +310,14 @@ private fun PropPicker(
     current: String,
     values: List<Long>,
     label: (Long) -> String = { it.toString() },
+    rotated: Boolean = false,
     onSelect: (Long) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Box(
             modifier = Modifier
+                .graphicsLayer { if (rotated) rotationZ = 90f }
                 .background(Apple.scrim, CircleShape)
                 .border(0.5.dp, Apple.hairlineOnDark, CircleShape)
                 .clickable { expanded = true }
