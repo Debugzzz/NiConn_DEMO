@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.niconn.protocol.NkOps
 import com.niconn.protocol.PtpDataCodec
 import com.niconn.protocol.PtpIpSession
+import com.niconn.service.AppSettingsStore
 import com.niconn.service.DevicePropController
 import com.niconn.service.LiveViewController
 import com.niconn.service.LiveViewFrame
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 
 class LiveViewViewModel(
     private val getSession: () -> PtpIpSession?,
+    private val settings: AppSettingsStore? = null,
 ) : ViewModel() {
     private val _frame = MutableStateFlow<Bitmap?>(null)
     val frame: StateFlow<Bitmap?> = _frame
@@ -55,7 +57,7 @@ class LiveViewViewModel(
             return
         }
         if (liveController != null) return
-        val controller = LiveViewController(session)
+        val controller = LiveViewController(session) { settings?.frameIntervalMs ?: 33L }
         liveController = controller
         _isLive.value = true
         controller.start {

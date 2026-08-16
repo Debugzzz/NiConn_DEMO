@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,7 +35,7 @@ import com.niconn.discovery.CameraInfo
 import com.niconn.service.ConnectionState
 
 @Composable
-fun ConnectionScreen(viewModel: ConnectionViewModel) {
+fun ConnectionScreen(viewModel: ConnectionViewModel, onOpenSettings: () -> Unit = {}) {
     val state by viewModel.state.collectAsState()
     val cameras by viewModel.cameras.collectAsState()
     val savedCamera by viewModel.savedCamera.collectAsState()
@@ -47,7 +48,22 @@ fun ConnectionScreen(viewModel: ConnectionViewModel) {
             .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AppleLargeTitle("NiConn")
+        // 大标题即设置入口：点击从左侧滑出设置抽屉
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenSettings)
+                .padding(start = 20.dp, end = 16.dp, top = 8.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("NiConn", color = Apple.label, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.weight(1f))
+            Icon(
+                Icons.Filled.Settings,
+                contentDescription = "设置",
+                tint = Apple.secondaryLabel,
+            )
+        }
         when (val current = state) {
             is ConnectionState.Idle -> {
                 GuideCard()

@@ -43,19 +43,21 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.niconn.service.AppSettingsStore
 import com.niconn.service.ConnectionState
 import com.niconn.service.PropSpecs
 import kotlin.math.max
 import kotlin.math.min
 
 @Composable
-fun LiveViewScreen(viewModel: ConnectionViewModel) {
-    val lvViewModel: LiveViewViewModel = viewModel { LiveViewViewModel { viewModel.liveSession } }
+fun LiveViewScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
+    val lvViewModel: LiveViewViewModel = viewModel { LiveViewViewModel({ viewModel.liveSession }, settings) }
     val state by viewModel.state.collectAsState()
     val frame by lvViewModel.frame.collectAsState()
     val isLive by lvViewModel.isLive.collectAsState()
@@ -66,7 +68,7 @@ fun LiveViewScreen(viewModel: ConnectionViewModel) {
     val shutterOptions by lvViewModel.shutterOptions.collectAsState()
     val apertureOptions by lvViewModel.apertureOptions.collectAsState()
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
-    var landscape by rememberSaveable { mutableStateOf(false) }
+    var landscape by rememberSaveable { mutableStateOf(settings.defaultLandscape.value) }
     val displayFrame = remember(landscape, frame) {
         if (landscape) frame?.let { rotateBitmap(it, 90) } else frame
     }
@@ -77,6 +79,13 @@ fun LiveViewScreen(viewModel: ConnectionViewModel) {
     }
     DisposableEffect(Unit) {
         onDispose { lvViewModel.stop() }
+    }
+    // 取景页按设置保持屏幕常亮
+    val view = LocalView.current
+    val keepScreenOn by settings.keepScreenOn.collectAsState()
+    DisposableEffect(keepScreenOn) {
+        view.keepScreenOn = keepScreenOn
+        onDispose { view.keepScreenOn = false }
     }
 
     Box(

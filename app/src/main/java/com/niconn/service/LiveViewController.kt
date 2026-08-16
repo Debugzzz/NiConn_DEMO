@@ -21,7 +21,11 @@ data class LiveViewFrame(
     val viewInfo: PtpDataCodec.LiveViewInfo?,
 )
 
-class LiveViewController(private val session: PtpIpSession) {
+class LiveViewController(
+    private val session: PtpIpSession,
+    /** 每帧轮询间隔，按调用方读取以支持运行中调整帧率。 */
+    private val frameIntervalMs: () -> Long = { 33L },
+) {
     private var headerLogged = false
     private var frameCount = 0
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -75,7 +79,7 @@ class LiveViewController(private val session: PtpIpSession) {
                         NkOps.DEVICE_BUSY -> delay(100)
                         else -> Unit
                     }
-                    delay(33)
+                    delay(frameIntervalMs())
                 }
             } catch (e: Exception) {
                 if (running) onError(e.message ?: "实时取景失败")

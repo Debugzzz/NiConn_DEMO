@@ -59,12 +59,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.niconn.protocol.PtpDataCodec
 import com.niconn.protocol.PtpIpSession
+import com.niconn.service.AppSettingsStore
 import com.niconn.service.GalleryController
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
-fun GalleryScreen(viewModel: ConnectionViewModel) {
+fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
     val galleryViewModel: GalleryViewModel = viewModel { GalleryViewModel { viewModel.liveSession } }
     val session = viewModel.liveSession
     val items by galleryViewModel.items.collectAsState()
@@ -119,8 +120,9 @@ fun GalleryScreen(viewModel: ConnectionViewModel) {
                 )
             }
             Box(Modifier.fillMaxSize()) {
+                val gridColumns by settings.gridColumns.collectAsState()
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
+                    columns = GridCells.Fixed(gridColumns),
                     state = galleryViewModel.gridState,
                     modifier = Modifier.fillMaxSize(),
                 ) {

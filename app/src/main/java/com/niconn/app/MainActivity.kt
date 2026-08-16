@@ -8,6 +8,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import com.niconn.discovery.NsdCameraDiscovery
 import com.niconn.protocol.PtpIpSession
+import com.niconn.service.AppSettingsStore
 import com.niconn.service.CameraService
 import com.niconn.service.ClientIdentityStore
 import com.niconn.service.SavedCameraStore
@@ -34,7 +35,10 @@ class MainActivity : ComponentActivity() {
                     outlineVariant = Apple.separator,
                 ),
             ) {
-                MainScreen(ConnectionViewModel(cameraService, SavedCameraStore(this)))
+                MainScreen(
+                    viewModel = ConnectionViewModel(cameraService, SavedCameraStore(this)),
+                    settings = AppSettingsStore(this),
+                )
             }
         }
     }
