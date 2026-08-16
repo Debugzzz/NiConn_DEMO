@@ -8,20 +8,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ScreenRotation
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -78,6 +82,7 @@ fun LiveViewScreen(
     val wbOptions by lvViewModel.wbOptions.collectAsState()
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var landscape by rememberSaveable { mutableStateOf(settings.defaultLandscape.value) }
+    var activePicker by remember { mutableStateOf<String?>(null) }
     val displayFrame = remember(landscape, frame) {
         if (landscape) frame?.let { rotateBitmap(it, 90) } else frame
     }
@@ -107,46 +112,50 @@ fun LiveViewScreen(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        if (!landscape) {
-            // 竖屏：上图像下控件，控件不压在画面上
-            Column(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .onSizeChanged { containerSize = it },
-                ) {
-                    LiveViewCanvasLayers(
-                        displayFrame = displayFrame,
-                        focusPoint = focusPoint,
-                        afFrame = afFrame,
-                        focusFactors = focusFactors,
-                        landscape = landscape,
-                        onTap = { offset -> handleTap(offset, currentFrame, containerSize, landscape, lvViewModel) },
-                    )
-                }
-                PortraitControls(lvViewModel, isoOptions, shutterOptions, apertureOptions, evOptions, wbOptions)
+        // 上图像下控件（横竖屏同构）：控件区黑底、不显画面；横屏时控件保持原位仅自身旋转
+        Column(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .onSizeChanged { containerSize = it },
+            ) {
+                LiveViewCanvasLayers(
+                    displayFrame = displayFrame,
+                    focusPoint = focusPoint,
+                    afFrame = afFrame,
+                    focusFactors = focusFactors,
+                    landscape = landscape,
+                    onTap = { offset -> handleTap(offset, currentFrame, containerSize, landscape, lvViewModel) },
+                )
             }
-        } else {
-            // 横屏：左画面右竖排控件条，控件不压在画面上
-            Row(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier
-                        .fillMaxHeight()
-                        .weight(1f)
-                        .onSizeChanged { containerSize = it },
-                ) {
-                    LiveViewCanvasLayers(
-                        displayFrame = displayFrame,
-                        focusPoint = focusPoint,
-                        afFrame = afFrame,
-                        focusFactors = focusFactors,
-                        landscape = landscape,
-                        onTap = { offset -> handleTap(offset, currentFrame, containerSize, landscape, lvViewModel) },
-                    )
-                }
-                LandscapeControls(lvViewModel, isoOptions, shutterOptions, apertureOptions, evOptions, wbOptions)
-            }
+            ControlsBlock(
+                lvViewModel,
+                isoOptions,
+                shutterOptions,
+                apertureOptions,
+                evOptions,
+                wbOptions,
+                landscape,
+                activePicker = activePicker,
+                onTogglePicker = { key ->
+                    activePicker = if (activePicker == key) null else key
+                },
+            )
+        }
+        activePicker?.let { key ->
+            OptionStripOverlay(
+                title = key,
+                values = pickerValues(key, isoOptions, shutterOptions, apertureOptions, evOptions, wbOptions),
+                current = pickerCurrent(key, lvViewModel),
+                label = pickerLabel(key),
+                landscape = landscape,
+                onSelect = { value ->
+                    pickerSelect(key, lvViewModel, value)
+                    activePicker = null
+                },
+                onClose = { activePicker = null },
+            )
         }
         error?.let {
             Text(
@@ -313,22 +322,25 @@ private fun LiveViewCanvasLayers(
     }
 }
 
-/** 竖屏控件：两行，位于画面下方（画面外）。 */
+/** 控件区：两行，位于画面下方（黑底、不显画面）。横屏时控件保持原位、仅自身旋转。 */
 @Composable
-private fun PortraitControls(
+private fun ControlsBlock(
     lvViewModel: LiveViewViewModel,
     isoOptions: List<Long>,
     shutterOptions: List<Long>,
     apertureOptions: List<Long>,
     evOptions: List<Long>,
     wbOptions: List<Long>,
+    landscape: Boolean,
+    activePicker: String?,
+    onTogglePicker: (String) -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Black)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(
@@ -336,101 +348,202 @@ private fun PortraitControls(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PropPicker("曝光", lvViewModel.ev.collectAsState().value, evOptions, label = { v -> formatEvLabel(v) }) {
-                lvViewModel.setProp(PropSpecs.EV, it)
-            }
-            PropPicker("白平衡", lvViewModel.wb.collectAsState().value, wbOptions, label = { v -> wbLabel(v) }) {
-                lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
-            }
+            PropPicker(
+                "曝光",
+                lvViewModel.ev.collectAsState().value,
+                rotated = landscape,
+                active = activePicker == "曝光",
+                onToggle = { onTogglePicker("曝光") },
+            )
+            PropPicker(
+                "白平衡",
+                lvViewModel.wb.collectAsState().value,
+                rotated = landscape,
+                active = activePicker == "白平衡",
+                onToggle = { onTogglePicker("白平衡") },
+            )
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions) {
-                lvViewModel.setProp(PropSpecs.ISO, it)
-            }
+            PropPicker(
+                "ISO",
+                lvViewModel.iso.collectAsState().value,
+                rotated = landscape,
+                active = activePicker == "ISO",
+                onToggle = { onTogglePicker("ISO") },
+            )
             PropPicker(
                 "快门",
                 lvViewModel.shutter.collectAsState().value,
-                shutterOptions,
-                label = { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" },
-            ) {
-                lvViewModel.setProp(PropSpecs.SHUTTER, it)
-            }
+                rotated = landscape,
+                active = activePicker == "快门",
+                onToggle = { onTogglePicker("快门") },
+            )
             PropPicker(
                 "光圈",
                 lvViewModel.aperture.collectAsState().value,
-                apertureOptions,
-                label = { v -> "f/${v / 100.0}" },
-            ) {
-                lvViewModel.setProp(PropSpecs.APERTURE, it)
-            }
-            ShutterButton(onClick = { lvViewModel.takePhoto() })
+                rotated = landscape,
+                active = activePicker == "光圈",
+                onToggle = { onTogglePicker("光圈") },
+            )
+            ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = landscape)
         }
     }
 }
 
-/** 横屏控件条：右侧竖排，各控件自身旋转 90°（画面外）。 */
+/** 参数胶囊：点击打开横向选项条；横屏时自身原地旋转（文字随之可读）。 */
 @Composable
-private fun LandscapeControls(
-    lvViewModel: LiveViewViewModel,
+private fun PropPicker(
+    title: String,
+    current: String,
+    rotated: Boolean = false,
+    active: Boolean = false,
+    onToggle: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .graphicsLayer { if (rotated) rotationZ = 90f }
+            .background(if (active) Apple.blue else Apple.scrim, CircleShape)
+            .border(
+                0.5.dp,
+                if (active) Color.White else Apple.hairlineOnDark,
+                CircleShape,
+            )
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 12.dp, vertical = 3.dp),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(title, color = Color(0xB3FFFFFF), fontSize = 9.sp)
+            Text(
+                current,
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+/** 全宽横向选项条：横屏时整条旋转 90°、长度撑满屏幕长边（点选菜单）。 */
+@Composable
+private fun OptionStripOverlay(
+    title: String,
+    values: List<Long>,
+    current: String,
+    label: (Long) -> String,
+    landscape: Boolean,
+    onSelect: (Long) -> Unit,
+    onClose: () -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0x88000000))
+            .clickable(onClick = onClose),
+    ) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val strip = @Composable {
+                val listState = rememberLazyListState()
+                LaunchedEffect(current) {
+                    val idx = values.indexOfFirst { label(it) == current }
+                    if (idx > 0) listState.scrollToItem(idx)
+                }
+                LazyRow(
+                    state = listState,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    items(values) { value ->
+                        val selected = label(value) == current
+                        Text(
+                            text = label(value),
+                            color = if (selected) Apple.blue else Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(if (selected) Color.White else Apple.scrimStrong, CircleShape)
+                                .clickable {
+                                    onSelect(value)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            }
+            if (landscape) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .graphicsLayer { rotationZ = 90f }
+                        .width(maxHeight)
+                        .height(52.dp)
+                        .background(Apple.scrimStrong, RoundedCornerShape(26.dp)),
+                ) {
+                    strip()
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .background(Apple.scrimStrong, RoundedCornerShape(26.dp)),
+                ) {
+                    strip()
+                }
+            }
+        }
+    }
+}
+
+private fun pickerValues(
+    key: String,
     isoOptions: List<Long>,
     shutterOptions: List<Long>,
     apertureOptions: List<Long>,
     evOptions: List<Long>,
     wbOptions: List<Long>,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(68.dp)
-            .background(Color.Black)
-            .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        PropPicker("ISO", lvViewModel.iso.collectAsState().value, isoOptions, rotated = true) {
-            lvViewModel.setProp(PropSpecs.ISO, it)
-        }
-        PropPicker(
-            "快门",
-            lvViewModel.shutter.collectAsState().value,
-            shutterOptions,
-            label = { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" },
-            rotated = true,
-        ) {
-            lvViewModel.setProp(PropSpecs.SHUTTER, it)
-        }
-        PropPicker(
-            "光圈",
-            lvViewModel.aperture.collectAsState().value,
-            apertureOptions,
-            label = { v -> "f/${v / 100.0}" },
-            rotated = true,
-        ) {
-            lvViewModel.setProp(PropSpecs.APERTURE, it)
-        }
-        PropPicker(
-            "曝光",
-            lvViewModel.ev.collectAsState().value,
-            evOptions,
-            label = { v -> formatEvLabel(v) },
-            rotated = true,
-        ) {
-            lvViewModel.setProp(PropSpecs.EV, it)
-        }
-        PropPicker(
-            "白平衡",
-            lvViewModel.wb.collectAsState().value,
-            wbOptions,
-            label = { v -> wbLabel(v) },
-            rotated = true,
-        ) {
-            lvViewModel.setProp(PropSpecs.WHITE_BALANCE, it)
-        }
-        ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = true)
+): List<Long> = when (key) {
+    "ISO" -> isoOptions
+    "快门" -> shutterOptions
+    "光圈" -> apertureOptions
+    "曝光" -> evOptions
+    "白平衡" -> wbOptions
+    else -> emptyList()
+}
+
+@Composable
+private fun pickerCurrent(key: String, lvViewModel: LiveViewViewModel): String = when (key) {
+    "ISO" -> lvViewModel.iso.collectAsState().value
+    "快门" -> lvViewModel.shutter.collectAsState().value
+    "光圈" -> lvViewModel.aperture.collectAsState().value
+    "曝光" -> lvViewModel.ev.collectAsState().value
+    "白平衡" -> lvViewModel.wb.collectAsState().value
+    else -> "--"
+}
+
+private fun pickerLabel(key: String): (Long) -> String = when (key) {
+    "ISO" -> { v -> v.toString() }
+    "快门" -> { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" }
+    "光圈" -> { v -> "f/${v / 100.0}" }
+    "曝光" -> { v -> formatEvLabel(v) }
+    "白平衡" -> { v -> wbLabel(v) }
+    else -> { v -> v.toString() }
+}
+
+private fun pickerSelect(key: String, lvViewModel: LiveViewViewModel, value: Long) {
+    when (key) {
+        "ISO" -> lvViewModel.setProp(PropSpecs.ISO, value)
+        "快门" -> lvViewModel.setProp(PropSpecs.SHUTTER, value)
+        "光圈" -> lvViewModel.setProp(PropSpecs.APERTURE, value)
+        "曝光" -> lvViewModel.setProp(PropSpecs.EV, value)
+        "白平衡" -> lvViewModel.setProp(PropSpecs.WHITE_BALANCE, value)
     }
 }
 
@@ -453,50 +566,3 @@ private fun ShutterButton(onClick: () -> Unit, rotated: Boolean = false) {
     }
 }
 
-@Composable
-private fun PropPicker(
-    title: String,
-    current: String,
-    values: List<Long>,
-    label: (Long) -> String = { it.toString() },
-    rotated: Boolean = false,
-    onSelect: (Long) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box {
-        Box(
-            modifier = Modifier
-                .graphicsLayer { if (rotated) rotationZ = 90f }
-                .background(Apple.scrim, CircleShape)
-                .border(0.5.dp, Apple.hairlineOnDark, CircleShape)
-                .clickable { expanded = true }
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(title, color = Color(0xB3FFFFFF), fontSize = 10.sp)
-                Text(
-                    current,
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(14.dp),
-        ) {
-            values.forEach { value ->
-                DropdownMenuItem(
-                    text = { Text(label(value)) },
-                    onClick = {
-                        expanded = false
-                        onSelect(value)
-                    },
-                )
-            }
-        }
-    }
-}

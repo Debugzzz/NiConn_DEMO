@@ -180,10 +180,13 @@ object PtpDataCodec {
         val result = ArrayList<Long>(count)
         repeat(count) {
             if (offset + dts > data.size) return result
-            result += if (dts == 2) {
-                littleEndianUShort(data, offset).toLong()
-            } else {
-                littleEndianInt(data, offset).toLong() and 0xFFFFFFFFL
+            result += when {
+                // 有符号类型（INT16 0x0003 / INT32 0x0005，如曝光补偿的负值）需符号扩展，
+                // 否则 -333 会被读成 65203 显示成 +65.2
+                dts == 2 && dataType == 0x0003 -> littleEndianUShort(data, offset).toShort().toLong()
+                dts == 2 -> littleEndianUShort(data, offset).toLong()
+                dataType == 0x0005 -> littleEndianInt(data, offset).toLong()
+                else -> littleEndianInt(data, offset).toLong() and 0xFFFFFFFFL
             }
             offset += dts
         }

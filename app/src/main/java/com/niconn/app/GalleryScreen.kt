@@ -133,6 +133,12 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(items, key = { it.handle }) { item ->
+                        // 可见即加载：缩略图按需回源（缓存命中则跳过）
+                        LaunchedEffect(item.handle) {
+                            if (item.thumbnail == null || item.formatLabel == null) {
+                                galleryViewModel.ensureLoaded(item.handle)
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .aspectRatio(1f)
@@ -148,6 +154,11 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                                     onLongClick = { galleryViewModel.toggleSelect(item.handle) },
                                 ),
                         ) {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(Apple.background),
+                            )
                             item.thumbnail?.let {
                                 Image(
                                     bitmap = it.asImageBitmap(),

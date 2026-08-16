@@ -33,8 +33,14 @@ class GalleryViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    /** 会话内缓存：句柄 → 缩略图/格式。刷新只对新增句柄回源，加速二次刷新。 */
+    /** 会话内缓存：句柄 → 缩略图/格式。滚动/刷新复用，不重复回源。 */
     private val cache = LinkedHashMap<Int, GalleryItem>()
+
+    /** 进行中的按需加载（去重：同一句柄不并发回源）。 */
+    private val inFlight = java.util.concurrent.ConcurrentHashMap<Int, Unit>()
+
+    /** 加载失败黑名单：避免每个可见项反复重试打爆会话；手动刷新时清空重试。 */
+    private val failed = MutableStateFlow<Set<Int>>(emptySet())
 
     fun refresh() {
         val session = getSession()
@@ -47,29 +53,46 @@ class GalleryViewModel(
             try {
                 val controller = GalleryController(session)
                 val handles = controller.listHandles()
+                failed.value = emptySet()
+                // 网格立即可见：只取句柄列表，缩略图由可见单元按需加载（ensureLoaded）
                 _items.value = handles.map { cache[it] ?: GalleryItem(it) }
-                var fetched = 0
-                handles.forEach { handle ->
-                    if (cache.containsKey(handle)) return@forEach
-                    val info = try {
-                        controller.objectInfo(handle)
-                    } catch (e: Exception) {
-                        null
-                    }
+                com.niconn.AppLog.d("GAL", "refresh total=${handles.size} cached=${cache.size}")
+            } catch (e: Exception) {
+                _error.value = "读取相册失败：${e.message}"
+            }
+        }
+    }
+
+    /** 按需加载单个条目（ObjectInfo + 缩略图）：网格单元可见时调用。 */
+    fun ensureLoaded(handle: Int) {
+        if (cache.containsKey(handle)) return
+        if (handle in failed.value) return
+        if (inFlight.putIfAbsent(handle, Unit) != null) return
+        val session = getSession()
+        if (session == null) {
+            inFlight.remove(handle)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val item = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                    val controller = GalleryController(session)
+                    val info = controller.objectInfo(handle)
                     val label = when (info?.format) {
                         0x3000, 0x3800 -> "NEF"
                         0x3801 -> "JPEG"
                         else -> null
                     }
-                    val thumb = controller.loadThumb(handle)?.let { decodeSampled(it, 512) }
-                    val item = GalleryItem(handle, thumb, label)
-                    cache[handle] = item
-                    fetched++
-                    _items.value = _items.value.map { if (it.handle == handle) item else it }
+                    val thumb = controller.loadThumb(handle)?.let { decodeSampled(it, 320) }
+                    GalleryItem(handle, thumb, label)
                 }
-                com.niconn.AppLog.d("GAL", "refresh total=${handles.size} fetched=$fetched cachedSkip=${handles.size - fetched}")
+                cache[handle] = item
+                _items.value = _items.value.map { if (it.handle == handle) item else it }
             } catch (e: Exception) {
-                _error.value = "读取相册失败：${e.message}"
+                failed.value = failed.value + handle
+                com.niconn.AppLog.d("GAL", "load failed handle=$handle: ${e.message}")
+            } finally {
+                inFlight.remove(handle)
             }
         }
     }

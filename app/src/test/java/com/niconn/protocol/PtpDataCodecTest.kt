@@ -172,4 +172,22 @@ class PtpDataCodecTest {
             DevicePropValueCodec.encode(DevicePropValueCodec.TYPE_UINT16, 100),
         )
     }
+
+    @Test
+    fun `prop desc enums sign extend int16 negatives`() {
+        // ExposureBiasCompensation(0x5010) INT16 枚举：0/+333/-333，负值必须符号扩展
+        val bytes = byteArrayOf(
+            0x10, 0x50, // prop code 0x5010 (LE)
+            0x03, 0x00, // dataType INT16
+            0x01, // get/set
+            0x00, 0x00, // factory default 0
+            0x00, 0x00, // current 0
+            0x02, // form flag: enumeration
+            0x03, 0x00, // count 3
+            0x00, 0x00, // 0
+            0x4D, 0x01, // +333
+            0xB3.toByte(), 0xFE.toByte(), // -333 (0xFEB3 as INT16)
+        )
+        assertEquals(listOf(0L, 333L, -333L), PtpDataCodec.parsePropDescEnums(bytes))
+    }
 }
