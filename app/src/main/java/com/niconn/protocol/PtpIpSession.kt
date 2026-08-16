@@ -88,6 +88,7 @@ open class PtpIpSession(
                     "payload=${ack.payload.joinToString("") { "%02x".format(it) }}"
             }
             val info = parseAck(ack.payload)
+            com.niconn.AppLog.d("SESSION", "connected host=$host model=${info.modelSerial} guid=${info.guid}")
 
             // 命令会话号以 ACK 返回的 session 为准（实测恒为 1），不是 Init 里的 UUID 片段。
             val sessionId = info.sessionId
@@ -169,6 +170,7 @@ open class PtpIpSession(
         }
 
     open suspend fun close() {
+        com.niconn.AppLog.d("SESSION", "closing")
         withContext(Dispatchers.IO) {
             socket?.close()
             socket = null

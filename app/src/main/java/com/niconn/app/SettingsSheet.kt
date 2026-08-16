@@ -130,8 +130,20 @@ fun SettingsDrawer(
                         ) { settings.setGridColumns(it.toInt()) }
                     }
                 }
-                AppleSectionHeader("关于")
+                AppleSectionHeader("诊断")
                 val context = LocalContext.current
+                AppleCard(Modifier.padding(horizontal = 20.dp)) {
+                    Column {
+                        AboutActionRow("导出日志", Icons.Filled.ChevronRight) {
+                            exportLogs(context)
+                        }
+                        DividerInset()
+                        AboutActionRow("清空日志", Icons.Filled.ChevronRight) {
+                            com.niconn.AppLog.clear()
+                        }
+                    }
+                }
+                AppleSectionHeader("关于")
                 AppleCard(Modifier.padding(horizontal = 20.dp)) {
                     Column {
                         AboutValueRow("版本", BuildConfig.VERSION_NAME)
@@ -155,6 +167,30 @@ fun SettingsDrawer(
                 )
             }
         }
+    }
+}
+
+/** 把环形日志写入缓存文件并通过系统分享面板导出。 */
+private fun exportLogs(context: android.content.Context) {
+    runCatching {
+        val dir = java.io.File(context.cacheDir, "logs").apply { mkdirs() }
+        val file = java.io.File(dir, "niconn-log-${System.currentTimeMillis()}.txt")
+        file.writeText(com.niconn.AppLog.export())
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file,
+        )
+        context.startActivity(
+            Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                },
+                "导出日志",
+            ),
+        )
     }
 }
 

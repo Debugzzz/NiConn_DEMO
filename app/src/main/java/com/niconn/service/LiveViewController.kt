@@ -59,8 +59,9 @@ class LiveViewController(
                                         break
                                     }
                                 }
-                                println(
-                                    "NiConnLV ver=$major.$minor whole=${PtpDataCodec.parseViewInfo(data)} " +
+                                com.niconn.AppLog.d(
+                                    "LV",
+                                    "ver=$major.$minor whole=${PtpDataCodec.parseViewInfo(data)} " +
                                         "af=${PtpDataCodec.parseAfFrame(data)} dataLen=${data.size} " +
                                         "head=$head soi=$soi",
                                 )

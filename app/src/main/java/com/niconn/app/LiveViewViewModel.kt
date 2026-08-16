@@ -107,7 +107,7 @@ class LiveViewViewModel(
                     _afFrame.value = it.af
                     _viewInfo.value = it.viewInfo
                     it.af?.let { af ->
-                        println("NiConnLV af=${af.hCenter},${af.vCenter} size=${af.hSize}x${af.vSize} lastSent=$lastSentPoint")
+                        com.niconn.AppLog.d("LV", "af=${af.hCenter},${af.vCenter} size=${af.hSize}x${af.vSize} lastSent=$lastSentPoint")
                     }
                     _frame.value = BitmapFactory.decodeByteArray(it.jpeg, 0, it.jpeg.size)
                 }
