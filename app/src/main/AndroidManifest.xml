@@ -4,6 +4,18 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
+    <!--
+      Android 11+ 软件包可见性：应用默认看不到其他包，未声明则既查不到、也拉不起
+      系统「文件」（DocumentsUI）。「打开保存文件夹」（WatermarkStorage.openFolder）
+      依赖该 intent 定位到 Android/data/<包名>/files/Watermark。
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="vnd.android.document/directory" />
+        </intent>
+    </queries>
+
     <application
         android:label="@string/app_name"
         android:theme="@style/Theme.NiConn"

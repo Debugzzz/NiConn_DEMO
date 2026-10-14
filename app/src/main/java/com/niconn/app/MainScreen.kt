@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -34,6 +35,7 @@ enum class AppTab(val label: String, val icon: ImageVector) {
     CONNECTION("连接", Icons.Filled.Wifi),
     LIVE_VIEW("取景", Icons.Filled.PhotoCamera),
     GALLERY("相册", Icons.Filled.PhotoLibrary),
+    WATERMARK("水印", Icons.Filled.Brush),
 }
 
 @Composable
@@ -105,6 +107,7 @@ fun MainScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                         onFullscreenChanged = { hideBottomBar = it },
                     )
                     AppTab.GALLERY -> GalleryScreen(viewModel, settings)
+                    AppTab.WATERMARK -> com.niconn.watermark.WatermarkScreen()
                 }
             }
         }

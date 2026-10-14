@@ -11,8 +11,8 @@ android {
         applicationId = "com.niconn.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
     }
     buildTypes {
         release {
@@ -21,6 +21,11 @@ android {
     }
     buildFeatures {
         buildConfig = true
+    }
+    testOptions {
+        // 让 android.jar 的方法在 JVM 单测中返回默认值而非抛异常
+        // （AppLog 会调用 android.util.Log 镜像到 logcat）
+        unitTests.isReturnDefaultValues = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -42,6 +47,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // 需要读取 LensModel / PhotographicSensitivity：android.media.ExifInterface 不支持这些 tag
+    implementation("androidx.exifinterface:exifinterface:1.4.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
 }
