@@ -7,29 +7,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PtpIpSessionTest {
+    // 注：以下两个用例原以真实抓包中的客户端 UUID 与主机名作为字节锚点。
+    // 那些值属于设备配对凭据（相机在已配对状态下仅凭该 UUID 识别客户端），
+    // 不应入库，已替换为结构等价的合成值——编码规则与断言强度不变。
+    // 合成 UUID 的第 5-6 字节仍写入模式码（计算机 0d cc / 智能设备 61 1e），
+    // 以保留该约定的文档价值；真实锚点字节请仅留在本地。
+
     @Test
-    fun `init payload matches real WTU capture bytes`() {
+    fun `init payload encodes uuid + UTF-16LE name + tail (computer mode)`() {
         val payload = buildInitPayload(
-            uuid = "e9a0e1fd0dcc559cfd59daf757a92b53".hexToByteArray(),
+            uuid = "010203040dcc05060708090a0b0c0d0e".hexToByteArray(),
             mode = ConnectionMode.COMPUTER,
-            name = "WTU-Debugz-MacBook Pro",
+            name = "WTU-Test-Host",
         )
         val expected =
-            "e9a0e1fd0dcc559cfd59daf757a92b53" +
-                "5700540055002d00440065006200750067007a002d004d006100630042006f006f006b002000500072006f00" +
+            "010203040dcc05060708090a0b0c0d0e" +
+                "5700540055002d0054006500730074002d0048006f0073007400" +
                 "000000000100"
         assertArrayEquals(expected.hexToByteArray(), payload)
     }
 
     @Test
-    fun `init payload matches real SnapBridge capture bytes`() {
+    fun `init payload encodes uuid + UTF-16BE name + tail (smart device mode)`() {
         val payload = buildInitPayload(
-            uuid = "2dad7e8f611e4d0ab71099abd75e89d6".hexToByteArray(),
+            uuid = "11223344611e5566778899aabbccddee".hexToByteArray(),
             mode = ConnectionMode.SMART_DEVICE,
             name = "Android Device",
         )
         val expected =
-            "2dad7e8f611e4d0ab71099abd75e89d6" +
+            "11223344611e5566778899aabbccddee" +
                 "0041006e00640072006f006900640020004400650076006900630065" +
                 "000000000100"
         assertArrayEquals(expected.hexToByteArray(), payload)
