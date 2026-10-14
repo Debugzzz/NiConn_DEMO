@@ -14,6 +14,11 @@
 - **设置抽屉**：点击连接页「NiConn」标题从左侧滑出（iOS 风格），可调取景帧率（省电/均衡/流畅）、默认横屏、屏幕常亮、相册缩略图列数；诊断区可导出/清空应用日志；附版本与许可信息
 - **实时取景**：约 10fps 无线取景；点按对焦（单点 AF 区域模式 + 绿色对焦框）；快门拍摄；ISO / 快门速度 / 光圈 / 曝光补偿 / 白平衡按相机实际支持值调节；横屏模式
 - **相册**：缩略图网格（JPEG/NEF 角标）、大图查看（EXIF 自动旋转、双指缩放）、照片详细信息（文件名、大小、分辨率、ISO、快门、光圈、焦距、拍摄日期）、删除、长按多选批量下载
+- **照片水印**：两个版式，版式设计复刻自开源项目 [photix-mark-web](https://github.com/LeoonLiang/photix-mark-web)（详见[致谢](#致谢)）
+  - **经典版式**：底部水印条四角排版——左上「品牌 + 型号」（型号自带品牌时自动去重）、左下镜头（缺失时回落 `Unknown Lens`）、右上焦距 / 光圈 / 快门 / ISO、右下拍摄时间，最右为品牌 Logo 图片
+  - **艺术版式**：模糊背景铺满 + 圆角阴影主图（居中略偏上）+ 底部相机与拍摄参数文字
+  - 显示项（型号 / 镜头 / 焦距 / 光圈 / 快门 / ISO / 时间）逐项开关，两个版式共用
+  - 选图按 **JPG / NEF** 过滤，NEF 取内嵌 JPEG 预览渲染；成品保存至应用私有目录，页内可一键打开保存文件夹
 
 ## 技术栈
 
@@ -27,10 +32,13 @@
 
 ## 已编译 APK
 
-- 文件：[release/NiConn_Demo-v0.1.0.apk](release/NiConn_Demo-v0.1.0.apk)
-- 版本：**v0.1.0**（versionCode 1，debug 签名）
-- 构建日期：2026-08-06
-- 安装：允许「安装未知来源应用」，或 `adb install -r release/NiConn_Demo-v0.1.0.apk`
+- 文件：[release/NiConn_Demo-v0.1.2.apk](release/NiConn_Demo-v0.1.2.apk)
+- 版本：**v0.1.2**（versionCode 3，debug 签名）
+- 构建日期：2026-10-15
+- 单元测试：81 个用例全部通过
+- 安装：允许「安装未知来源应用」，或 `adb install -r release/NiConn_Demo-v0.1.2.apk`
+
+历史版本见 [Releases](https://github.com/Debugzzz/NiConn_DEMO/releases)。
 
 ## 编译
 
@@ -41,7 +49,7 @@
 # 产物：app/build/outputs/apk/debug/app-debug.apk（文件名 = 模块名 app + 构建类型 debug）
 ```
 
-执行 `./gradlew :app:assembleRelease` 会生成 `app-release.apk`（未配置签名时使用 debug 签名）。仓库提供的演示包已重命名为 `NiConn_Demo-v0.1.0.apk`。
+执行 `./gradlew :app:assembleRelease` 会生成 `app-release.apk`（未配置签名时使用 debug 签名）。仓库提供的演示包已重命名为 `NiConn_Demo-v0.1.2.apk`。
 
 安装到手机：
 
@@ -72,6 +80,24 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - **实时取景点按对焦坐标**：在 Z50II 上点按位置与相机实际对焦点仍不能完全对应，需要进一步开发校准；其他机型同样需要重新校准。
 
 开发状态与计划见 [docs/ROADMAP.md](docs/ROADMAP.md)。
+
+## 致谢
+
+本项目的**照片水印**功能在设计上借鉴了开源项目 [**photix-mark-web**](https://github.com/LeoonLiang/photix-mark-web)
+（作者 [@LeoonLiang](https://github.com/LeoonLiang)，MIT License），版式与处理器管线的对应关系如下：
+
+| 本应用 | photix-mark-web 对应实现 |
+| --- | --- |
+| 经典版式 | `app/lib/templates/standard1.ts` + `app/lib/processors/watermark.ts` |
+| 艺术版式 | `app/lib/templates/blurBackground.ts` 的 10 步处理器管线（`rounded_corner` → `shadow` → `rich_text` ×2 → `concat` → `blur` → `resize` ×2 → `alignment` ×2） |
+
+本应用的水印渲染为**原生 Kotlin + Android Canvas 独立重写**，未引入其源代码、模板文件或运行时依赖（不依赖 WebView）；
+版式的几何公式、取整规则与处理顺序逐项对齐上游实现，以保证输出效果一致。品牌 Logo 取自该仓库 `public/logos/`。
+
+## 贡献者
+
+- [@Debugzzz](https://github.com/Debugzzz) — 项目发起与维护、PTP/IP 协议逆向与抓包分析、真机验证
+- [@deepseek-ai](https://github.com/deepseek-ai) — 开发协作：水印版式复刻、EXIF 读取链路排查、代码审查与重构
 
 ## 法律与合规声明
 
