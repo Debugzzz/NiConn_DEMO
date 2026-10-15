@@ -33,6 +33,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +47,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.niconn.service.AppSettingsStore
 import com.niconn.service.FrameRateMode
+import com.niconn.update.UpdateChecker
+import com.niconn.update.UpdateResult
+import kotlinx.coroutines.launch
 
 private const val REPO_URL = "https://github.com/Debugzzz/NiConn_DEMO"
 
@@ -56,6 +63,13 @@ fun SettingsDrawer(
     onClose: () -> Unit,
 ) {
     BackHandler(enabled = visible) { onClose() }
+
+    // 检查更新状态
+    val scope = rememberCoroutineScope()
+    var checking by remember { mutableStateOf(false) }
+    var updateHint by remember { mutableStateOf<String?>(null) }
+    var pendingUpdate by remember { mutableStateOf<UpdateResult.Available?>(null) }
+
     Box(Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = visible,
@@ -148,6 +162,27 @@ fun SettingsDrawer(
                     Column {
                         AboutValueRow("版本", BuildConfig.VERSION_NAME)
                         DividerInset()
+                        AboutActionRow(
+                            label = "检查更新",
+                            icon = Icons.Filled.ChevronRight,
+                            value = if (checking) "检查中…" else updateHint,
+                        ) {
+                            if (checking) return@AboutActionRow
+                            checking = true
+                            updateHint = null
+                            scope.launch {
+                                when (val result = UpdateChecker.check(BuildConfig.VERSION_NAME)) {
+                                    is UpdateResult.Available -> {
+                                        updateHint = "有新版 ${result.latestVersion}"
+                                        pendingUpdate = result
+                                    }
+                                    UpdateResult.UpToDate -> updateHint = "已是最新"
+                                    is UpdateResult.Failed -> updateHint = "检查失败"
+                                }
+                                checking = false
+                            }
+                        }
+                        DividerInset()
                         AboutActionRow("GitHub 仓库", Icons.Filled.ChevronRight) {
                             runCatching {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL)))
@@ -165,6 +200,28 @@ fun SettingsDrawer(
                     color = Apple.secondaryLabel,
                     modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
                 )
+
+                pendingUpdate?.let { info ->
+                    AppleAlert(
+                        title = "发现新版本 ${info.latestVersion}",
+                        onDismiss = { pendingUpdate = null },
+                        confirmText = "前往下载",
+                        onConfirm = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl)))
+                            }
+                            pendingUpdate = null
+                        },
+                        dismissText = "稍后",
+                        hasBody = true,
+                    ) {
+                        Text(
+                            "当前版本 ${BuildConfig.VERSION_NAME}，是否前往发布页查看并下载？",
+                            fontSize = 13.sp,
+                            color = Apple.secondaryLabel,
+                        )
+                    }
+                }
             }
         }
     }
@@ -305,7 +362,12 @@ private fun AboutValueRow(label: String, value: String) {
 }
 
 @Composable
-private fun AboutActionRow(label: String, icon: ImageVector, onClick: () -> Unit) {
+private fun AboutActionRow(
+    label: String,
+    icon: ImageVector,
+    value: String? = null,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -315,6 +377,14 @@ private fun AboutActionRow(label: String, icon: ImageVector, onClick: () -> Unit
     ) {
         Text(label, fontSize = 17.sp)
         Spacer(Modifier.weight(1f))
+        value?.let {
+            Text(
+                it,
+                fontSize = 15.sp,
+                color = Apple.secondaryLabel,
+                modifier = Modifier.padding(end = 6.dp),
+            )
+        }
         Icon(icon, contentDescription = null, tint = Apple.secondaryLabel)
     }
 }
