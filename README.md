@@ -4,7 +4,7 @@
 
 # NiConn_DEMO
 
-尼康 Z50II 无线控制 Android 演示应用（第三方独立实现）。
+尼康 Z50II 无线控制 Android 演示应用。
 
 通过相机「连接至智能设备」+ STA 模式（相机连接手机热点），使用 PTP/IP 无线协议完成发现、配对、连接、实时取景、参数调节与相册管理。**不使用尼康官方 SDK、不依赖 SnapBridge**。
 
@@ -101,8 +101,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## 法律与合规声明
 
-- 本项目是独立实现的第三方兼容工具，与 Nikon Corporation 无隶属、合作、授权或认可关系。
-- 本项目为独立实现的第三方兼容工具，**不包含**尼康官方软件（SnapBridge / WTU 等）的任何代码或二进制文件。
+- 本项目为独立实现的第三方兼容工具，与 Nikon Corporation 无隶属、合作、授权或认可关系，不包含尼康官方软件（SnapBridge / WTU 等）的任何代码或二进制文件。
 - 「Nikon」「SnapBridge」等商标仅用于兼容性描述。
 
 ## 开源许可
