@@ -87,17 +87,23 @@ object UpdateChecker {
      * 从 Atom 订阅源取最新标签。真实结构（已按线上数据核对）：
      *
      *     <entry>
-     *       <id>tag:github.com,2008:Repository/…/v0.1.2</id>
-     *       <link rel="alternate" … href="…/releases/tag/v0.1.2"/>
-     *       <title>v0.1.2</title>
+     *       <id>tag:github.com,2008:Repository/1325460914/v0.1.3</id>
+     *       <link rel="alternate" type="text/html"
+     *             href="https://github.com/Debugzzz/NiConn_DEMO/releases/tag/v0.1.3"/>
+     *       <title>v0.1.3 — 检查更新</title>
+     *
+     * 注意 **不能从 `<title>` 取标签名**：附注标签（`git tag -a`）的标题是标签说明的
+     * 首行（实测为 "v0.1.3 — 检查更新"），据此拼出的发布页 URL 会失效。
+     * 因此优先取条目里的链接／id，二者都只含真正的标签名。
      */
     internal fun parseAtomLatestTag(atom: String): String? {
-        Regex("<entry>[\\s\\S]*?<title>([^<]+)</title>")
-            .find(atom)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotEmpty() }
-            ?.let { return it }
-        // 兼容不含 <entry> 包裹的形态：跳过订阅源自身的标题
-        return Regex("<title>([^<]+)</title>").findAll(atom).drop(1).firstOrNull()
-            ?.groupValues?.get(1)?.trim()?.takeIf { it.isNotEmpty() }
+        val entry = Regex("<entry>[\\s\\S]*?</entry>").find(atom)?.value
+        val candidates = listOfNotNull(
+            entry?.let { Regex("/releases/tag/([^\"<]+)").find(it)?.groupValues?.get(1) },
+            entry?.let { Regex("/Repository/\\d+/([^<]+)").find(it)?.groupValues?.get(1) },
+            entry?.let { Regex("<title>([^<]+)</title>").find(it)?.groupValues?.get(1) },
+        )
+        return candidates.firstOrNull { it.isNotBlank() }?.trim()
     }
 
     private fun readText(url: String): String {
@@ -131,13 +137,15 @@ object UpdateChecker {
         return false
     }
 
-    /** `v0.1.2` / `0.1.3-rc1` → `[0, 1, 2]`。 */
-    internal fun parseVersion(raw: String): List<Int> =
-        raw.trim()
-            .removePrefix("v")
-            .removePrefix("V")
-            .substringBefore('-')
-            .substringBefore('+')
-            .split('.')
-            .map { part -> part.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
+    /**
+     * 从任意文本中取出版本号：`v0.1.2` / `0.1.3-rc1` / `v0.1.3 — 检查更新` → `[0, 1, 3]`。
+     *
+     * 用正则只抓形如 `0.1.3` 的数字段，避免标签说明等附加文字干扰。
+     */
+    internal fun parseVersion(raw: String): List<Int> {
+        val match = VERSION_PATTERN.find(raw) ?: return listOf(0)
+        return match.groupValues[1].split('.').map { it.toIntOrNull() ?: 0 }
+    }
+
+    private val VERSION_PATTERN = Regex("""v?(\d+(?:\.\d+)*)""", RegexOption.IGNORE_CASE)
 }

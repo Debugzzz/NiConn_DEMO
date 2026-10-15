@@ -44,7 +44,7 @@ class UpdateCheckerTest {
     fun `tolerates malformed input`() {
         assertFalse(UpdateChecker.isNewer("", ""))
         assertEquals(listOf(0), UpdateChecker.parseVersion(""))
-        assertEquals(listOf(0, 0), UpdateChecker.parseVersion("abc.def"))
+        assertEquals(listOf(0), UpdateChecker.parseVersion("abc.def"))
     }
 
     // ---------------- 网页端点解析 ----------------
@@ -85,8 +85,31 @@ class UpdateCheckerTest {
     """.trimIndent()
 
     @Test
-    fun `takes the first entry title as the latest tag`() {
+    fun `takes the tag from the first entry link`() {
         assertEquals("v0.1.2", UpdateChecker.parseAtomLatestTag(atomFeed))
+    }
+
+    /** 附注标签（git tag -a）的标题是说明首行，标签名要从链接／id 取。 */
+    private val annotatedAtomFeed = """
+        <feed>
+          <title>Tags from NiConn_DEMO</title>
+          <entry>
+            <id>tag:github.com,2008:Repository/1325460914/v0.1.3</id>
+            <link rel="alternate" type="text/html" href="https://github.com/Debugzzz/NiConn_DEMO/releases/tag/v0.1.3"/>
+            <title>v0.1.3 — 检查更新</title>
+          </entry>
+        </feed>
+    """.trimIndent()
+
+    @Test
+    fun `annotated tag title does not leak into the tag name`() {
+        assertEquals("v0.1.3", UpdateChecker.parseAtomLatestTag(annotatedAtomFeed))
+    }
+
+    @Test
+    fun `version parsing ignores tag annotation text`() {
+        assertEquals(listOf(0, 1, 3), UpdateChecker.parseVersion("v0.1.3 — 检查更新"))
+        assertTrue(UpdateChecker.isNewer("v0.1.3 — 检查更新", "0.1.2"))
     }
 
     @Test
