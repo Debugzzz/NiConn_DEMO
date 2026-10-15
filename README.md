@@ -11,7 +11,8 @@
 ## 功能
 
 - **连接引导**：三步引导（手机热点 → 相机 STA 配对 → 发现连接），自动配对码确认，最近连接保存与快速重连
-- **设置抽屉**：点击连接页「NiConn」标题从左侧滑出（iOS 风格），可调取景帧率（省电/均衡/流畅）、默认横屏、屏幕常亮、相册缩略图列数；诊断区可导出/清空应用日志；附版本与许可信息
+- **设置抽屉**：点击连接页「NiConn」标题从左侧滑出（iOS 风格），可调取景帧率（省电/均衡/流畅）、默认横屏、屏幕常亮、相册缩略图列数；诊断区可导出/清空应用日志；「关于」内含版本信息与**检查更新**
+- **检查更新**：一键比对 GitHub Releases 上的最新版本，有新版时提示并跳转发布页；读取仓库网页端点而非 GitHub API，避免移动网络下共享出口 IP 触发的 API 限流
 - **实时取景**：约 10fps 无线取景；点按对焦（单点 AF 区域模式 + 绿色对焦框）；快门拍摄；ISO / 快门速度 / 光圈 / 曝光补偿 / 白平衡按相机实际支持值调节；横屏模式
 - **相册**：缩略图网格（JPEG/NEF 角标）、大图查看（EXIF 自动旋转、双指缩放）、照片详细信息（文件名、大小、分辨率、ISO、快门、光圈、焦距、拍摄日期）、删除、长按多选批量下载
 - **照片水印**：两个版式，版式设计复刻自开源项目 [photix-mark-web](https://github.com/LeoonLiang/photix-mark-web)（详见[致谢](#致谢)）
@@ -32,11 +33,11 @@
 
 ## 已编译 APK
 
-- 文件：[release/NiConn_Demo-v0.1.2.apk](release/NiConn_Demo-v0.1.2.apk)
-- 版本：**v0.1.2**（versionCode 3，debug 签名）
+- 文件：[release/NiConn_Demo-v0.1.3.apk](release/NiConn_Demo-v0.1.3.apk)
+- 版本：**v0.1.3**（versionCode 4，debug 签名）
 - 构建日期：2026-10-15
-- 单元测试：81 个用例全部通过
-- 安装：允许「安装未知来源应用」，或 `adb install -r release/NiConn_Demo-v0.1.2.apk`
+- 单元测试：89 个用例全部通过
+- 安装：允许「安装未知来源应用」，或 `adb install -r release/NiConn_Demo-v0.1.3.apk`
 
 历史版本见 [Releases](https://github.com/Debugzzz/NiConn_DEMO/releases)。
 
@@ -49,7 +50,7 @@
 # 产物：app/build/outputs/apk/debug/app-debug.apk（文件名 = 模块名 app + 构建类型 debug）
 ```
 
-执行 `./gradlew :app:assembleRelease` 会生成 `app-release.apk`（未配置签名时使用 debug 签名）。仓库提供的演示包已重命名为 `NiConn_Demo-v0.1.2.apk`。
+执行 `./gradlew :app:assembleRelease` 会生成 `app-release.apk`（未配置签名时使用 debug 签名）。仓库提供的演示包已重命名为 `NiConn_Demo-v0.1.3.apk`。
 
 安装到手机：
 
