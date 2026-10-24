@@ -103,6 +103,12 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
 
     LaunchedEffect(Unit) { galleryViewModel.refresh() }
 
+    // 全屏看图期间暂停缩略图预取：原图请求与预取共用一条串行会话，
+    // 不暂停会被排队中的缩略图挡住（点开一直转圈的根因）
+    LaunchedEffect(previewHandle) {
+        galleryViewModel.setPrefetchPaused(previewHandle != null)
+    }
+
     // 滚动预取：可见窗口上报给 ViewModel（可见优先 + 预取下一屏，按距离排序）
     LaunchedEffect(items.size) {
         snapshotFlow {
@@ -353,13 +359,14 @@ private fun FullImageOverlay(
     handle: Int,
     session: PtpIpSession?,
     thumbnail: Bitmap?,
-    loadQuickPreview: suspend (Int) -> ByteArray?,
-    loadSharpPreview: suspend (Int) -> ByteArray?,
+    loadQuickPreview: suspend (Int) -> GalleryViewModel.PreviewResult?,
+    loadSharpPreview: suspend (Int) -> GalleryViewModel.PreviewResult?,
     onClose: () -> Unit,
 ) {
     var preview by remember(handle) { mutableStateOf<Bitmap?>(null) }
     var rotation by remember(handle) { mutableStateOf(0) }
     var showInfo by remember(handle) { mutableStateOf(false) }
+    var loadFailed by remember(handle) { mutableStateOf(false) }
     var info by remember(handle) { mutableStateOf<PtpDataCodec.ObjectInfoData?>(null) }
     var exif by remember(handle) { mutableStateOf<PhotoExif?>(null) }
     val scope = rememberCoroutineScope()
@@ -367,33 +374,28 @@ private fun FullImageOverlay(
     var viewSize by remember(handle) { mutableStateOf(IntSize.Zero) }
 
     LaunchedEffect(handle) {
-        // 两级取图：快速档（磁盘缓存=最终画质，或 640px 过渡图）先上屏；
-        // 原图档（GetObject，NEF 内嵌预览）到达后替换为清晰版并落盘，二次打开即清晰秒开
-        val quick = loadQuickPreview(handle)
-        if (quick != null) {
-            preview = decodeSampledRotated(quick, 2048)
+        // 两级取图（解码在 IO 线程）：快速档先上屏——命中原图缓存即最终画质，
+        // 否则 640px 过渡图；原图档（GetObject，NEF 内嵌预览）到达后替换并落盘
+        val quick = runCatching { loadQuickPreview(handle) }.getOrNull()
+        quick?.bitmap?.let { preview = it }
+        quick?.exif?.let { exif = it }
+        var sharp: GalleryViewModel.PreviewResult? = null
+        if (quick?.fromFullCache != true) {
+            sharp = runCatching { loadSharpPreview(handle) }.getOrNull()
+            sharp?.bitmap?.let { preview = it }
+            sharp?.exif?.let { exif = it }
         }
-        val sharp = loadSharpPreview(handle)
-        if (sharp != null && sharp.size != quick?.size) {
-            exif = parseExif(sharp)
-            preview = decodeSampledRotated(sharp, 2048)
-        } else if (quick != null) {
-            exif = parseExif(quick)
-        }
+        if (quick == null && sharp == null) loadFailed = true
         // 信息面板数据最后取，不挡图
         info = session?.let { GalleryController(it).objectInfo(handle) }
     }
 
     val content = preview ?: thumbnail
-    val displayBitmap = remember(content, rotation) { content?.let { rotateBitmap(it, rotation) } }
-    LaunchedEffect(displayBitmap, viewSize) {
-        displayBitmap?.let {
-            zoomState.onSizeChanged(
-                viewSize.width.toFloat(),
-                viewSize.height.toFloat(),
-                it.width,
-                it.height,
-            )
+    LaunchedEffect(content, viewSize, rotation) {
+        content?.let {
+            // 90° 旋转经 graphicsLayer 完成（零拷贝），边界计算用交换后的宽高
+            val (cw, ch) = if (rotation % 180 == 90) it.height to it.width else it.width to it.height
+            zoomState.onSizeChanged(viewSize.width.toFloat(), viewSize.height.toFloat(), cw, ch)
         }
     }
     // 预览到达后交叉淡入
@@ -413,6 +415,7 @@ private fun FullImageOverlay(
                     scaleY = zoomState.scale
                     translationX = zoomState.offsetX
                     translationY = zoomState.offsetY
+                    rotationZ = rotation.toFloat()
                 },
         ) {
             thumbnail?.let {
@@ -437,11 +440,20 @@ private fun FullImageOverlay(
             }
         }
         if (content == null) {
-            CircularProgressIndicator(
-                color = Color.White,
-                modifier = Modifier.align(Alignment.Center),
-            )
-        } else if (preview == null) {
+            if (loadFailed) {
+                Text(
+                    "加载失败，请检查相机连接",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            } else {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+        } else if (preview == null && !loadFailed) {
             // 缩略图已在展示，仅底部小提示
             CircularProgressIndicator(
                 color = Color.White,
@@ -451,6 +463,16 @@ private fun FullImageOverlay(
                     .padding(bottom = 32.dp)
                     .size(22.dp)
                     .alpha(0.7f),
+            )
+        } else if (preview == null && loadFailed) {
+            Text(
+                "原图加载失败，当前显示缩略图",
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .alpha(0.8f),
             )
         }
         Row(
@@ -482,7 +504,7 @@ private fun FullImageOverlay(
                 InfoRow("大小", data?.compressedSize?.let { String.format(Locale.US, "%.2f MB", it / 1048576.0) } ?: "—")
                 InfoRow(
                     "分辨率",
-                    displayBitmap?.let { "${it.width} × ${it.height}" }
+                    content?.let { "${it.width} × ${it.height}" }
                         ?: data?.let { "${it.imageWidth} × ${it.imageHeight}" }
                         ?: "—",
                 )

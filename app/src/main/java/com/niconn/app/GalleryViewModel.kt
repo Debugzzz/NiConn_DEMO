@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -58,13 +59,27 @@ class GalleryViewModel(
     private val fetchQueue = Channel<Int>(Channel.UNLIMITED)
     private val queued = java.util.concurrent.ConcurrentHashMap<Int, Unit>()
 
+    /**
+     * 预取暂停：全屏看图时置 true——原图请求与预取共用一条串行会话，
+     * 不暂停会被排队中的缩略图卡住（点开一直转圈的根因）。
+     */
+    private val prefetchPaused = MutableStateFlow(false)
+
+    /** 本会话相机是否明确不支持 GetLargeThumb（0x2005），不支持则跳过探测省一个往返。 */
+    private var largeThumbUnsupported = false
+
     init {
         viewModelScope.launch(Dispatchers.Default) {
             for (handle in fetchQueue) {
+                if (prefetchPaused.value) prefetchPaused.first { !it }
                 fetchThumb(handle)
                 queued.remove(handle)
             }
         }
+    }
+
+    fun setPrefetchPaused(paused: Boolean) {
+        prefetchPaused.value = paused
     }
 
     fun refresh() {
@@ -144,31 +159,51 @@ class GalleryViewModel(
         }
     }
 
+    /** 全屏查看取图结果：解码在 IO 线程完成，主线程只拿结果。 */
+    data class PreviewResult(
+        val bitmap: android.graphics.Bitmap?,
+        val exif: PhotoExif?,
+        /** 命中原图缓存：已是最终画质，无需再取原图档。 */
+        val fromFullCache: Boolean,
+    )
+
     /**
-     * 全屏查看·快速档：磁盘缓存（原图档落盘的字节，命中即最终画质）→
-     * GetLargeThumb（0x90C4）。注意 3:2 照片按规范优先级实际返回 MPF class 1
-     * 约 640×424，只作过渡显示，不落盘。
+     * 全屏查看·快速档：磁盘缓存（命中即最终画质，直接全分辨率解码）→
+     * GetLargeThumb（0x90C4，3:2 照片实际约 640×424）过渡图。
      */
-    suspend fun loadQuickPreview(handle: Int): ByteArray? = withContext(Dispatchers.IO) {
+    suspend fun loadQuickPreview(handle: Int): PreviewResult = withContext(Dispatchers.IO) {
         val fullCache = getFullCache()
-        fullCache?.load(handle)?.let { return@withContext it }
-        val session = getSession() ?: return@withContext null
-        GalleryController(session).loadLargeThumb(handle)
+        val cached = fullCache?.load(handle)
+        if (cached != null) {
+            return@withContext PreviewResult(decodeSharp(cached), parseExif(cached), true)
+        }
+        if (largeThumbUnsupported) return@withContext PreviewResult(null, null, false)
+        val session = getSession() ?: return@withContext PreviewResult(null, null, false)
+        val bytes = GalleryController(session).loadLargeThumb(handle) { largeThumbUnsupported = true }
+        PreviewResult(bytes?.let { decodeSampledRotated(it, 2048) }, bytes?.let { parseExif(it) }, false)
     }
 
     /**
-     * 全屏查看·原图档：磁盘缓存命中直接返回（二次打开零网络且即清晰版）；
-     * 否则 GetObject（NEF 取内嵌 JPEG 预览），字节落盘供下次秒开。
+     * 全屏查看·原图档：磁盘缓存命中直接返回；否则 GetObject（NEF 取内嵌
+     * JPEG 预览），字节落盘供下次秒开。
      */
-    suspend fun loadSharpPreview(handle: Int): ByteArray? = withContext(Dispatchers.IO) {
+    suspend fun loadSharpPreview(handle: Int): PreviewResult = withContext(Dispatchers.IO) {
         val fullCache = getFullCache()
-        fullCache?.load(handle)?.let { return@withContext it }
-        val session = getSession() ?: return@withContext null
+        val cached = fullCache?.load(handle)
+        if (cached != null) {
+            return@withContext PreviewResult(decodeSharp(cached), parseExif(cached), true)
+        }
+        val session = getSession() ?: return@withContext PreviewResult(null, null, false)
         val bytes = GalleryController(session).loadImage(handle)
             ?.let { raw -> extractLargestEmbeddedJpeg(raw) ?: raw }
         if (bytes != null && getSession() === session) fullCache?.store(handle, bytes)
-        bytes
+        PreviewResult(bytes?.let { decodeSharp(it) }, bytes?.let { parseExif(it) }, false)
     }
+
+    /** 全分辨率解码（保证放大清晰度），OOM 时降档 4096。 */
+    private fun decodeSharp(bytes: ByteArray): android.graphics.Bitmap? =
+        runCatching { decodeSampledRotated(bytes, 8192) }.getOrNull()
+            ?: runCatching { decodeSampledRotated(bytes, 4096) }.getOrNull()
 
     fun toggleSelect(handle: Int) {
         _selection.value = if (handle in _selection.value) {

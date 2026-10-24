@@ -45,13 +45,19 @@ class GalleryController(private val session: PtpIpSession) {
             ?.data
 
     /**
-     * 大预览（规范 6.2.3.6）：约 1620×1080 的 MPF JPEG，几百 KB，
-     * 全屏查看比 GetObject 原图（3-8MB）快一个量级；相机不支持时返回 null 由调用方回退。
+     * 大预览（规范 6.2.3.6，优先级 MPF class1 → VIEW → class2，3:2 照片实际
+     * 约 640×424）：只作全屏查看的过渡图。相机明确不支持（0x2005）时回调
+     * [onUnsupported]，调用方可跳过后续探测。
      */
-    suspend fun loadLargeThumb(handle: Int): ByteArray? =
-        session.sendCommand(NkOps.GetLargeThumb, listOf(handle))
-            .takeIf { it.code == NkOps.OK }
-            ?.data
+    suspend fun loadLargeThumb(handle: Int, onUnsupported: (() -> Unit)? = null): ByteArray? {
+        val response = session.sendCommand(NkOps.GetLargeThumb, listOf(handle))
+        if (response.code != NkOps.OK) {
+            com.niconn.AppLog.d("GAL", "largeThumb code=0x%04X handle=$handle".format(response.code))
+            if (response.code == 0x2005 && onUnsupported != null) onUnsupported()
+            return null
+        }
+        return response.data
+    }
 
     /** ObjectInfo 中的 ObjectFormatCode（规范 9.2，偏移 4）。 */
     suspend fun objectFormat(handle: Int): Int? {
