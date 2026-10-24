@@ -4,6 +4,8 @@
 
 # NiConn_DEMO
 
+**中文** | [English](README.en.md)
+
 尼康 Z50II 无线控制 Android 演示应用。
 
 通过相机「连接至智能设备」+ STA 模式（相机连接手机热点），使用 PTP/IP 无线协议完成发现、配对、连接、实时取景、参数调节与相册管理。**不使用尼康官方 SDK、不依赖 SnapBridge**。
