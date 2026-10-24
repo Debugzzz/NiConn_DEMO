@@ -30,6 +30,15 @@ class GalleryController(private val session: PtpIpSession) {
         return PtpDataCodec.parseObjectHandles(response.data)
     }
 
+    /**
+     * 一次性获取全部句柄的格式（角标用）：3 次按格式过滤的 GetObjectHandles
+     * 取代逐张 GetObjectInfo，每张省一个往返。
+     */
+    suspend fun formatByHandle(): Map<Int, Int> =
+        IMAGE_FORMATS.flatMap { format ->
+            listHandlesFor(format).map { it to format }
+        }.toMap()
+
     suspend fun loadThumb(handle: Int): ByteArray? =
         session.sendCommand(NkOps.GetThumb, listOf(handle))
             .takeIf { it.code == NkOps.OK }
@@ -81,4 +90,15 @@ class GalleryController(private val session: PtpIpSession) {
 
     suspend fun delete(handle: Int): Boolean =
         session.sendCommand(NkOps.DeleteObject, listOf(handle)).code == NkOps.OK
+
+    companion object {
+        val IMAGE_FORMATS = listOf(0x3801, 0x3000, 0x3800)
+
+        /** ObjectFormatCode → 角标文案（与相册/信息页的命名一致）。 */
+        fun formatLabel(format: Int): String? = when (format) {
+            0x3000, 0x3800 -> "NEF"
+            0x3801 -> "JPEG"
+            else -> null
+        }
+    }
 }

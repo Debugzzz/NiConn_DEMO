@@ -72,7 +72,19 @@ import java.util.Locale
 
 @Composable
 fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
-    val galleryViewModel: GalleryViewModel = viewModel { GalleryViewModel { viewModel.liveSession } }
+    val context = LocalContext.current
+    val galleryViewModel: GalleryViewModel = viewModel {
+        GalleryViewModel(
+            getSession = { viewModel.liveSession },
+            getThumbCache = {
+                // 相机维度隔离缓存；guid 优先，缺失时退回实例名。调用时实时读取，
+                // 换相机重连后自动落到新相机的缓存目录。
+                val cam = viewModel.savedCamera.value
+                val key = cam?.guid ?: cam?.instanceName ?: "default"
+                com.niconn.service.ThumbCache(context.cacheDir, key)
+            },
+        )
+    }
     val session = viewModel.liveSession
     val items by galleryViewModel.items.collectAsState()
     val selection by galleryViewModel.selection.collectAsState()
@@ -80,7 +92,6 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
     val error by galleryViewModel.error.collectAsState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var previewHandle by remember { mutableStateOf<Int?>(null) }
-    val context = LocalContext.current
 
     LaunchedEffect(Unit) { galleryViewModel.refresh() }
 
@@ -133,9 +144,10 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     modifier = Modifier.fillMaxSize(),
                 ) {
                     items(items, key = { it.handle }) { item ->
-                        // 可见即加载：缩略图按需回源（缓存命中则跳过）
+                        // 可见即加载：缩略图按需回源（内存/磁盘缓存命中则跳过；
+                        // 格式角标 refresh 时已批量就位，不再触发回源）
                         LaunchedEffect(item.handle) {
-                            if (item.thumbnail == null || item.formatLabel == null) {
+                            if (item.thumbnail == null) {
                                 galleryViewModel.ensureLoaded(item.handle)
                             }
                         }

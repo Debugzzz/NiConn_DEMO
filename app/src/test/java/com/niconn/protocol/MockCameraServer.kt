@@ -8,7 +8,17 @@ import java.util.concurrent.TimeUnit
 
 data class CameraHandshake(val sessionId: Int, val clientName: String)
 
-class MockCameraServer(private val listenPort: Int = 0) : AutoCloseable {
+/** 模拟机内对象：句柄 + ObjectFormatCode（0x3801 JPEG / 0x3000 NEF 等）。 */
+data class MockObject(val handle: Int, val format: Int)
+
+class MockCameraServer(
+    private val listenPort: Int = 0,
+    private val objects: List<MockObject> = listOf(
+        MockObject(1, 0x3801),
+        MockObject(2, 0x3000),
+        MockObject(3, 0x3801),
+    ),
+) : AutoCloseable {
     private val server = ServerSocket(listenPort)
     private val executor = Executors.newCachedThreadPool()
     private val handshakes = java.util.concurrent.ConcurrentLinkedQueue<CameraHandshake>()
@@ -109,14 +119,26 @@ class MockCameraServer(private val listenPort: Int = 0) : AutoCloseable {
                             writeFrame(s, PtpIpCodec.encodeFrame(9, byteArrayOf(1, 0, 0, 0, bytes.size.toByte(), 0, 0, 0, 0, 0, 0, 0)))
                             writeFrame(s, PtpIpCodec.encodeFrame(12, byteArrayOf(1, 0, 0, 0) + bytes))
                         } else if (request.opcode == NkOps.GetObjectHandles) {
-                            val handles = byteArrayOf(3, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0)
+                            // 参数2为格式过滤（-1/0 = 全部），对齐真机 GetObjectHandles 行为
+                            val format = request.params.getOrElse(1) { 0 }
+                            val matched = objects.filter {
+                                format == 0 || format == -1 || it.format == format
+                            }
+                            val handles = java.nio.ByteBuffer.allocate(4 + matched.size * 4)
+                                .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                                .putInt(matched.size)
+                                .apply { matched.forEach { putInt(it.handle) } }
+                                .array()
                             writeFrame(s, PtpIpCodec.encodeFrame(9, byteArrayOf(1, 0, 0, 0, handles.size.toByte(), 0, 0, 0, 0, 0, 0, 0)))
                             writeFrame(s, PtpIpCodec.encodeFrame(12, byteArrayOf(1, 0, 0, 0) + handles))
                         } else if (request.opcode == NkOps.GetObjectInfo) {
-                            // 大端：StorageID + ObjectFormat=0x3801 + Protection + Size + 图像尺寸 + 文件名
+                            val handle = request.params.firstOrNull() ?: 0
+                            val obj = objects.firstOrNull { it.handle == handle } ?: objects.first()
+                            val format = obj.format
+                            val ext = if (format == 0x3801) "JPG" else "NEF"
                             val info = byteArrayOf(
                                 0, 0, 0, 1, // storage
-                                0x01, 0x38, // JPEG (LE)
+                                (format and 0xFF).toByte(), ((format shr 8) and 0xFF).toByte(), // format (LE)
                                 0, 0, // protection
                                 0x10, 0, 0, 0, // size 16 (LE)
                                 0, 0, 0, 0, 0, 0, 0, 0, // thumb
@@ -125,7 +147,7 @@ class MockCameraServer(private val listenPort: Int = 0) : AutoCloseable {
                                 0, 0, 0, 0x18, // bit depth
                                 0, 0, 0, 2, // parent
                                 0, 0, 0, 0, 0, 0, 0, 0, // assoc type + desc + seq
-                            ) + "DSC_0001.JPG".toByteArray(Charsets.UTF_16LE) +
+                            ) + "DSC_%04d.%s".format(obj.handle, ext).toByteArray(Charsets.UTF_16LE) +
                                 byteArrayOf(0, 0) + "2026:08:06 12:00:00".toByteArray(Charsets.UTF_16LE) +
                                 byteArrayOf(0, 0)
                             writeFrame(s, PtpIpCodec.encodeFrame(9, byteArrayOf(1, 0, 0, 0, info.size.toByte(), 0, 0, 0, 0, 0, 0, 0)))

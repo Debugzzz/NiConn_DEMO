@@ -78,6 +78,7 @@
 - ObjectInfo 多字节字段为小端；固定区 52 字节（AssociationDesc 占 4 字节），随后是文件名、拍摄日期等 UTF-16 字符串。
 - 对象格式码：JPEG=0x3801，NEF=0x3000（MTP 支持时）/0x3800。
 - 缩略图：GetThumb；原图：GetObject（大文件需流式累积，避免内存峰值）。
+- 列表流程：GetObjectHandles 全量 1 次 + 按格式过滤 3 次（JPEG/NEF×2）得到角标，省去逐张 GetObjectInfo 的每张一个往返；缩略图按「内存 → 磁盘缓存（cacheDir/camera-thumbs/<相机>，句柄键）→ GetThumb」回源，刷新时用句柄集校验缓存，句柄消失即整册失效（防删除后句柄重排串图）。
 
 ## 响应码
 
