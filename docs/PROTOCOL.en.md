@@ -45,7 +45,7 @@
 | 0x1007 | GetObjectHandles | params: storage, format, association; response is a handle array |
 | 0x1008 | GetObjectInfo | ObjectInfo dataset |
 | 0x1009 / 0x100A | GetObject / GetThumb | download original / thumbnail |
-| 0x90C4 | GetLargeThumb | large preview (MPF ~1620×1080, spec 6.2.3.6); preferred for full-screen viewing, falls back to GetObject (NEF uses embedded JPEG) |
+| 0x90C4 | GetLargeThumb | large preview (spec 6.2.3.6, priority MPF class1 → VIEW → class2; for 3:2 stills this actually returns class 1 at ~640×424, 1620×1080 is the class 2 tier) |
 | 0x100B | DeleteObject | delete |
 | 0x1014 | GetDevicePropDesc | property enumeration (actual supported values) |
 | 0x1015 / 0x1016 | Get/SetDevicePropValue | read/write of 2-byte property codes; data is the raw value bytes |
@@ -82,7 +82,7 @@
 - Object format codes: JPEG=0x3801, NEF=0x3000 (when MTP-supported)/0x3800.
 - Thumbnails: GetThumb; originals: GetObject (large files should be accumulated in a stream to avoid memory peaks).
 - Listing flow: GetObjectHandles once unfiltered + 3 format-filtered queries (JPEG/NEF×2) to obtain the badges, saving one round trip per photo compared to per-object GetObjectInfo; thumbnails are sourced in the order "memory → disk cache (cacheDir/camera-thumbs/<camera>, keyed by handle) → GetThumb". On refresh the cache is validated against the handle set — if any cached handle disappears (a deletion happened on the card, handles may have shifted) the whole cache is invalidated.
-- Full-screen viewing: show the grid thumbnail first, then fetch "disk full cache (camera-full) → GetLargeThumb (1620px MPF preview, a few hundred KB) → GetObject fallback" and cross-fade it in; the preview bytes are cached so the second open needs no network.
+- Full-screen viewing (two stages): show the grid thumbnail first → quick stage "disk full cache (camera-full, a hit is already final quality) → GetLargeThumb (~640×424 transitional image)" → sharp stage GetObject (NEF uses embedded JPEG) replaces it and is cached to disk; the second open hits the cache and is instantly sharp.
 
 ## Response Codes
 

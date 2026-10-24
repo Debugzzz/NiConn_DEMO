@@ -145,16 +145,27 @@ class GalleryViewModel(
     }
 
     /**
-     * 全屏查看取图：磁盘大图缓存 → GetLargeThumb（0x90C4，约 1620px MPF 预览，
-     * 几百 KB）→ GetObject 回退（NEF 取内嵌 JPEG）。字节落盘，二次打开零网络。
+     * 全屏查看·快速档：磁盘缓存（原图档落盘的字节，命中即最终画质）→
+     * GetLargeThumb（0x90C4）。注意 3:2 照片按规范优先级实际返回 MPF class 1
+     * 约 640×424，只作过渡显示，不落盘。
      */
-    suspend fun loadPreview(handle: Int): ByteArray? = withContext(Dispatchers.IO) {
+    suspend fun loadQuickPreview(handle: Int): ByteArray? = withContext(Dispatchers.IO) {
         val fullCache = getFullCache()
         fullCache?.load(handle)?.let { return@withContext it }
         val session = getSession() ?: return@withContext null
-        val controller = GalleryController(session)
-        val bytes = controller.loadLargeThumb(handle)
-            ?: controller.loadImage(handle)?.let { raw -> extractLargestEmbeddedJpeg(raw) ?: raw }
+        GalleryController(session).loadLargeThumb(handle)
+    }
+
+    /**
+     * 全屏查看·原图档：磁盘缓存命中直接返回（二次打开零网络且即清晰版）；
+     * 否则 GetObject（NEF 取内嵌 JPEG 预览），字节落盘供下次秒开。
+     */
+    suspend fun loadSharpPreview(handle: Int): ByteArray? = withContext(Dispatchers.IO) {
+        val fullCache = getFullCache()
+        fullCache?.load(handle)?.let { return@withContext it }
+        val session = getSession() ?: return@withContext null
+        val bytes = GalleryController(session).loadImage(handle)
+            ?.let { raw -> extractLargestEmbeddedJpeg(raw) ?: raw }
         if (bytes != null && getSession() === session) fullCache?.store(handle, bytes)
         bytes
     }

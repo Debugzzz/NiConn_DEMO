@@ -305,7 +305,8 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                 handle = handle,
                 session = session,
                 thumbnail = thumbs[handle],
-                loadPreview = { galleryViewModel.loadPreview(handle) },
+                loadQuickPreview = { galleryViewModel.loadQuickPreview(handle) },
+                loadSharpPreview = { galleryViewModel.loadSharpPreview(handle) },
                 onClose = { previewHandle = null },
             )
         }
@@ -352,7 +353,8 @@ private fun FullImageOverlay(
     handle: Int,
     session: PtpIpSession?,
     thumbnail: Bitmap?,
-    loadPreview: suspend (Int) -> ByteArray?,
+    loadQuickPreview: suspend (Int) -> ByteArray?,
+    loadSharpPreview: suspend (Int) -> ByteArray?,
     onClose: () -> Unit,
 ) {
     var preview by remember(handle) { mutableStateOf<Bitmap?>(null) }
@@ -365,13 +367,20 @@ private fun FullImageOverlay(
     var viewSize by remember(handle) { mutableStateOf(IntSize.Zero) }
 
     LaunchedEffect(handle) {
-        // 取图链路：磁盘大图缓存 → GetLargeThumb（1620px MPF 预览）→ GetObject 回退；
-        // 到达前先显示格子缩略图放大版，不出现黑屏
-        val bytes = loadPreview(handle)
-        if (bytes != null) {
-            exif = parseExif(bytes)
-            preview = decodeSampledRotated(bytes, 2048)
+        // 两级取图：快速档（磁盘缓存=最终画质，或 640px 过渡图）先上屏；
+        // 原图档（GetObject，NEF 内嵌预览）到达后替换为清晰版并落盘，二次打开即清晰秒开
+        val quick = loadQuickPreview(handle)
+        if (quick != null) {
+            preview = decodeSampledRotated(quick, 2048)
         }
+        val sharp = loadSharpPreview(handle)
+        if (sharp != null && sharp.size != quick?.size) {
+            exif = parseExif(sharp)
+            preview = decodeSampledRotated(sharp, 2048)
+        } else if (quick != null) {
+            exif = parseExif(quick)
+        }
+        // 信息面板数据最后取，不挡图
         info = session?.let { GalleryController(it).objectInfo(handle) }
     }
 
