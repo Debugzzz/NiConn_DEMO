@@ -11,19 +11,23 @@ import androidx.lifecycle.viewModelScope
 import com.niconn.protocol.PtpIpSession
 import com.niconn.service.GalleryController
 import com.niconn.service.ThumbCache
+import com.niconn.watermark.extractLargestEmbeddedJpeg
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 class GalleryViewModel(
     private val getSession: () -> PtpIpSession?,
     private val getThumbCache: () -> ThumbCache? = { null },
+    private val getFullCache: () -> ThumbCache? = { null },
 ) : ViewModel() {
+    /** 网格条目：句柄 + 角标。加载完成后保持不变，缩略图走独立 map。 */
     data class GalleryItem(
         val handle: Int,
-        val thumbnail: Bitmap? = null,
         val formatLabel: String? = null,
     )
 
@@ -37,8 +41,9 @@ class GalleryViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
-    /** 会话内缓存：句柄 → 缩略图/格式。滚动/刷新复用，不重复回源。 */
-    private val cache = LinkedHashMap<Int, GalleryItem>()
+    /** 句柄 → 已解码缩略图。增量发布，条目到达不重建网格列表。 */
+    private val _thumbs = MutableStateFlow<Map<Int, Bitmap>>(emptyMap())
+    val thumbs: StateFlow<Map<Int, Bitmap>> = _thumbs
 
     /** 会话内格式表（refresh 时 3 次过滤查询得到，替代逐张 GetObjectInfo）。 */
     private val handleFormats = HashMap<Int, Int>()
@@ -46,11 +51,21 @@ class GalleryViewModel(
     /** 格式表所属会话：换会话（重连/换相机）时清空，避免句柄重排后串角标。 */
     private var formatsSession: PtpIpSession? = null
 
-    /** 进行中的按需加载（去重：同一句柄不并发回源）。 */
-    private val inFlight = java.util.concurrent.ConcurrentHashMap<Int, Unit>()
-
-    /** 加载失败黑名单：避免每个可见项反复重试打爆会话；手动刷新时清空重试。 */
+    /** 加载失败黑名单：避免反复重试打爆会话；手动刷新时清空重试。 */
     private val failed = MutableStateFlow<Set<Int>>(emptySet())
+
+    /** 预取队列：单工作协程顺序回源（相机命令本就串行，排队还能按视口距离重排优先级）。 */
+    private val fetchQueue = Channel<Int>(Channel.UNLIMITED)
+    private val queued = java.util.concurrent.ConcurrentHashMap<Int, Unit>()
+
+    init {
+        viewModelScope.launch(Dispatchers.Default) {
+            for (handle in fetchQueue) {
+                fetchThumb(handle)
+                queued.remove(handle)
+            }
+        }
+    }
 
     fun refresh() {
         val session = getSession()
@@ -70,12 +85,13 @@ class GalleryViewModel(
                 }
                 // 网格立即可见：只取句柄列表；磁盘缓存校验（句柄消失则整册失效）
                 getThumbCache()?.retain(handles.toSet())
-                _items.value = handles.map { cache[it] ?: GalleryItem(it, formatLabel = label(it)) }
+                getFullCache()?.retain(handles.toSet())
+                _items.value = handles.map { GalleryItem(it, label(it)) }
                 // 格式角标：3 次按格式过滤的批量查询，不再逐张 GetObjectInfo
                 val formats = controller.formatByHandle()
                 handleFormats.putAll(formats)
-                _items.value = handles.map { cache[it] ?: GalleryItem(it, formatLabel = label(it)) }
-                com.niconn.AppLog.d("GAL", "refresh total=${handles.size} cached=${cache.size} formats=${formats.size}")
+                _items.value = handles.map { GalleryItem(it, label(it)) }
+                com.niconn.AppLog.d("GAL", "refresh total=${handles.size} thumbs=${_thumbs.value.size} formats=${formats.size}")
             } catch (e: Exception) {
                 _error.value = "读取相册失败：${e.message}"
             }
@@ -83,44 +99,64 @@ class GalleryViewModel(
     }
 
     /**
-     * 按需加载单个条目缩略图（网格单元可见时调用）：
-     * 内存 → 磁盘缓存 → GetThumb 的缓存优先顺序。
+     * 网格滚动时上报可见窗口：可见项优先、再预取下方一屏，
+     * 按与窗口中心的距离排序入队（滚得快时后入队的最新意图仍按序消费）。
      */
-    fun ensureLoaded(handle: Int) {
-        if (cache.containsKey(handle)) return
+    fun requestWindow(firstIndex: Int, lastIndex: Int, pageSize: Int, total: Int) {
+        if (total <= 0 || pageSize <= 0) return
+        val items = _items.value
+        val center = (firstIndex + lastIndex) / 2f
+        val from = firstIndex.coerceIn(0, items.size - 1)
+        val to = minOf(items.size - 1, maxOf(lastIndex, firstIndex + pageSize - 1) + pageSize)
+        (from..to)
+            .sortedBy { abs(it - center) }
+            .map { items[it].handle }
+            .forEach { enqueue(it) }
+    }
+
+    private fun enqueue(handle: Int) {
+        if (_thumbs.value.containsKey(handle)) return
         if (handle in failed.value) return
-        if (inFlight.putIfAbsent(handle, Unit) != null) return
-        val session = getSession()
-        if (session == null) {
-            inFlight.remove(handle)
-            return
-        }
-        viewModelScope.launch {
-            try {
-                val item = withContext(Dispatchers.Default) {
-                    val cacheStore = getThumbCache()
-                    // 缓存未命中才回源相机；磁盘文件解码失败视为未命中
-                    val cached = cacheStore?.load(handle)
-                    var bitmap = cached?.let { decodeSampled(it, 320) }
-                    if (bitmap == null) {
-                        val bytes = GalleryController(session).loadThumb(handle)
-                        bitmap = bytes?.let { decodeSampled(it, 320) }
-                        if (bytes != null) {
-                            // 会话换代后（重连）不落盘，防止旧连接数据污染新相机缓存
-                            if (getSession() === session) cacheStore?.store(handle, bytes)
-                        }
-                    }
-                    GalleryItem(handle, bitmap, label(handle))
-                }
-                cache[handle] = item
-                _items.value = _items.value.map { if (it.handle == handle) item else it }
-            } catch (e: Exception) {
-                failed.value = failed.value + handle
-                com.niconn.AppLog.d("GAL", "load failed handle=$handle: ${e.message}")
-            } finally {
-                inFlight.remove(handle)
+        if (queued.putIfAbsent(handle, Unit) != null) return
+        fetchQueue.trySend(handle)
+    }
+
+    /** 缩略图回源：磁盘缓存 → GetThumb；磁盘文件解码失败视为未命中。 */
+    private suspend fun fetchThumb(handle: Int) {
+        if (_thumbs.value.containsKey(handle) || handle in failed.value) return
+        val session = getSession() ?: return
+        try {
+            val cacheStore = getThumbCache()
+            var bitmap = cacheStore?.load(handle)?.let { decodeSampled(it, 320) }
+            if (bitmap == null) {
+                val bytes = GalleryController(session).loadThumb(handle)
+                bitmap = bytes?.let { decodeSampled(it, 320) }
+                if (bytes != null && getSession() === session) cacheStore?.store(handle, bytes)
             }
+            if (bitmap != null) {
+                _thumbs.value = _thumbs.value + (handle to bitmap)
+            } else {
+                failed.value = failed.value + handle
+            }
+        } catch (e: Exception) {
+            failed.value = failed.value + handle
+            com.niconn.AppLog.d("GAL", "thumb failed handle=$handle: ${e.message}")
         }
+    }
+
+    /**
+     * 全屏查看取图：磁盘大图缓存 → GetLargeThumb（0x90C4，约 1620px MPF 预览，
+     * 几百 KB）→ GetObject 回退（NEF 取内嵌 JPEG）。字节落盘，二次打开零网络。
+     */
+    suspend fun loadPreview(handle: Int): ByteArray? = withContext(Dispatchers.IO) {
+        val fullCache = getFullCache()
+        fullCache?.load(handle)?.let { return@withContext it }
+        val session = getSession() ?: return@withContext null
+        val controller = GalleryController(session)
+        val bytes = controller.loadLargeThumb(handle)
+            ?: controller.loadImage(handle)?.let { raw -> extractLargestEmbeddedJpeg(raw) ?: raw }
+        if (bytes != null && getSession() === session) fullCache?.store(handle, bytes)
+        bytes
     }
 
     fun toggleSelect(handle: Int) {
@@ -163,11 +199,12 @@ class GalleryViewModel(
                 val deleted = _selection.value.filter { controller.delete(it) }.toSet()
                 // 本地直接移除已删项，不做整册刷新（照片多时太慢）
                 _items.value = _items.value.filter { it.handle !in deleted }
+                _thumbs.value = _thumbs.value.filterKeys { it !in deleted }
                 deleted.forEach {
-                    cache.remove(it)
                     handleFormats.remove(it)
-                    // 同步清磁盘缓存，防同号句柄复用时串图
+                    // 同步清两级磁盘缓存，防同号句柄复用时串图
                     getThumbCache()?.remove(it)
+                    getFullCache()?.remove(it)
                 }
                 _selection.value = emptySet()
                 com.niconn.AppLog.d("GAL", "deleted=${deleted.size} remaining=${_items.value.size}")

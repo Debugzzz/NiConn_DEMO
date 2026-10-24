@@ -9,8 +9,12 @@ import java.io.File
  * 失效策略：refresh 时拿最新句柄集做校验，一旦缓存里出现相机上已不存在的句柄
  * （卡内有删除，后续句柄可能重排），整册清空重来，宁可慢一次也不串图。
  */
-class ThumbCache(baseDir: File, cameraKey: String) {
-    private val dir = File(File(baseDir, ROOT_DIR), sanitize(cameraKey))
+class ThumbCache(
+    baseDir: File,
+    cameraKey: String,
+    rootName: String = ROOT_DIR,
+) {
+    private val dir = File(File(baseDir, rootName), sanitize(cameraKey))
     private val indexFile = File(dir, INDEX_FILE)
     private val lock = Any()
 

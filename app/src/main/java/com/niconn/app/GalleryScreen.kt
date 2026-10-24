@@ -8,7 +8,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +43,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -60,6 +60,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -67,6 +68,7 @@ import com.niconn.protocol.PtpDataCodec
 import com.niconn.protocol.PtpIpSession
 import com.niconn.service.AppSettingsStore
 import com.niconn.service.GalleryController
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -76,17 +78,23 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
     val galleryViewModel: GalleryViewModel = viewModel {
         GalleryViewModel(
             getSession = { viewModel.liveSession },
+            // 相机维度隔离缓存；guid 优先，缺失时退回实例名。调用时实时读取，
+            // 换相机重连后自动落到新相机的缓存目录。
             getThumbCache = {
-                // 相机维度隔离缓存；guid 优先，缺失时退回实例名。调用时实时读取，
-                // 换相机重连后自动落到新相机的缓存目录。
                 val cam = viewModel.savedCamera.value
                 val key = cam?.guid ?: cam?.instanceName ?: "default"
                 com.niconn.service.ThumbCache(context.cacheDir, key)
+            },
+            getFullCache = {
+                val cam = viewModel.savedCamera.value
+                val key = cam?.guid ?: cam?.instanceName ?: "default"
+                com.niconn.service.ThumbCache(context.cacheDir, key, rootName = "camera-full")
             },
         )
     }
     val session = viewModel.liveSession
     val items by galleryViewModel.items.collectAsState()
+    val thumbs by galleryViewModel.thumbs.collectAsState()
     val selection by galleryViewModel.selection.collectAsState()
     val downloading by galleryViewModel.downloading.collectAsState()
     val error by galleryViewModel.error.collectAsState()
@@ -94,6 +102,20 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
     var previewHandle by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(Unit) { galleryViewModel.refresh() }
+
+    // 滚动预取：可见窗口上报给 ViewModel（可见优先 + 预取下一屏，按距离排序）
+    LaunchedEffect(items.size) {
+        snapshotFlow {
+            val info = galleryViewModel.gridState.layoutInfo
+            Triple(
+                info.visibleItemsInfo.firstOrNull()?.index ?: 0,
+                info.visibleItemsInfo.lastOrNull()?.index ?: 0,
+                info.visibleItemsInfo.size,
+            )
+        }.distinctUntilChanged().collect { (first, last, size) ->
+            galleryViewModel.requestWindow(first, last, size, items.size)
+        }
+    }
 
     Box(Modifier.fillMaxSize().background(Apple.surface)) {
         Column(Modifier.fillMaxSize()) {
@@ -143,14 +165,9 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     state = galleryViewModel.gridState,
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(items, key = { it.handle }) { item ->
-                        // 可见即加载：缩略图按需回源（内存/磁盘缓存命中则跳过；
-                        // 格式角标 refresh 时已批量就位，不再触发回源）
-                        LaunchedEffect(item.handle) {
-                            if (item.thumbnail == null) {
-                                galleryViewModel.ensureLoaded(item.handle)
-                            }
-                        }
+                    items(items, key = { it.handle }, contentType = { "photo" }) { item ->
+                        // 缩略图来自独立 map：到达时只更新对应格子，不重建网格列表
+                        val thumb = thumbs[item.handle]
                         Box(
                             modifier = Modifier
                                 .aspectRatio(1f)
@@ -171,7 +188,7 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                                     .fillMaxSize()
                                     .background(Apple.background),
                             )
-                            item.thumbnail?.let {
+                            thumb?.let {
                                 Image(
                                     bitmap = it.asImageBitmap(),
                                     contentDescription = "缩略图 ${item.handle}",
@@ -287,7 +304,8 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
             FullImageOverlay(
                 handle = handle,
                 session = session,
-                thumbnail = items.find { it.handle == handle }?.thumbnail,
+                thumbnail = thumbs[handle],
+                loadPreview = { galleryViewModel.loadPreview(handle) },
                 onClose = { previewHandle = null },
             )
         }
@@ -334,63 +352,96 @@ private fun FullImageOverlay(
     handle: Int,
     session: PtpIpSession?,
     thumbnail: Bitmap?,
+    loadPreview: suspend (Int) -> ByteArray?,
     onClose: () -> Unit,
 ) {
-    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
-    var rotation by remember { mutableStateOf(0) }
-    var scale by remember { mutableStateOf(1f) }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-    var showInfo by remember { mutableStateOf(false) }
-    var info by remember { mutableStateOf<PtpDataCodec.ObjectInfoData?>(null) }
-    var exif by remember { mutableStateOf<PhotoExif?>(null) }
-    var fileSize by remember { mutableStateOf<Long?>(null) }
+    var preview by remember(handle) { mutableStateOf<Bitmap?>(null) }
+    var rotation by remember(handle) { mutableStateOf(0) }
+    var showInfo by remember(handle) { mutableStateOf(false) }
+    var info by remember(handle) { mutableStateOf<PtpDataCodec.ObjectInfoData?>(null) }
+    var exif by remember(handle) { mutableStateOf<PhotoExif?>(null) }
     val scope = rememberCoroutineScope()
-    val displayBitmap = remember(bitmap, rotation) {
-        bitmap?.let { rotateBitmap(it, rotation) }
-    }
+    val zoomState = remember(handle) { ZoomableState() }
+    var viewSize by remember(handle) { mutableStateOf(IntSize.Zero) }
+
     LaunchedEffect(handle) {
-        val controller = session?.let { GalleryController(it) }
-        info = controller?.objectInfo(handle)
-        val bytes = controller?.loadImage(handle)
+        // 取图链路：磁盘大图缓存 → GetLargeThumb（1620px MPF 预览）→ GetObject 回退；
+        // 到达前先显示格子缩略图放大版，不出现黑屏
+        val bytes = loadPreview(handle)
         if (bytes != null) {
-            fileSize = bytes.size.toLong()
             exif = parseExif(bytes)
-            bitmap = decodeSampledRotated(bytes, 2048)
+            preview = decodeSampledRotated(bytes, 2048)
+        }
+        info = session?.let { GalleryController(it).objectInfo(handle) }
+    }
+
+    val content = preview ?: thumbnail
+    val displayBitmap = remember(content, rotation) { content?.let { rotateBitmap(it, rotation) } }
+    LaunchedEffect(displayBitmap, viewSize) {
+        displayBitmap?.let {
+            zoomState.onSizeChanged(
+                viewSize.width.toFloat(),
+                viewSize.height.toFloat(),
+                it.width,
+                it.height,
+            )
         }
     }
+    // 预览到达后交叉淡入
+    val previewAlpha by animateFloatAsState(
+        targetValue = if (preview != null) 1f else 0f,
+        label = "previewFade",
+    )
+
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        displayBitmap?.let {
-            Image(
-                bitmap = it.asImageBitmap(),
-                contentDescription = "大图 $handle",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(1f, 6f)
-                            offset += pan
-                        }
-                    }
-                    .graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = offset.x
-                        translationY = offset.y
-                    },
-                contentScale = ContentScale.Fit,
-            )
-        } ?: run {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .onSizeChanged { viewSize = it }
+                .zoomable(zoomState, scope)
+                .graphicsLayer {
+                    scaleX = zoomState.scale
+                    scaleY = zoomState.scale
+                    translationX = zoomState.offsetX
+                    translationY = zoomState.offsetY
+                },
+        ) {
             thumbnail?.let {
                 Image(
                     bitmap = it.asImageBitmap(),
                     contentDescription = "预览",
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 1f - previewAlpha },
                     contentScale = ContentScale.Fit,
                 )
             }
+            preview?.let {
+                Image(
+                    bitmap = it.asImageBitmap(),
+                    contentDescription = "大图 $handle",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = previewAlpha },
+                    contentScale = ContentScale.Fit,
+                )
+            }
+        }
+        if (content == null) {
             CircularProgressIndicator(
                 color = Color.White,
                 modifier = Modifier.align(Alignment.Center),
+            )
+        } else if (preview == null) {
+            // 缩略图已在展示，仅底部小提示
+            CircularProgressIndicator(
+                color = Color.White,
+                strokeWidth = 2.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .size(22.dp)
+                    .alpha(0.7f),
             )
         }
         Row(
@@ -400,13 +451,11 @@ private fun FullImageOverlay(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             OverlayIconButton(Icons.Filled.Info, "照片信息") {
-                scope.launch {
-                    info = session?.let { GalleryController(it).objectInfo(handle) }
-                }
                 showInfo = true
             }
             OverlayIconButton(Icons.Filled.Refresh, "旋转") {
                 rotation = (rotation + 90) % 360
+                zoomState.reset()
             }
             OverlayIconButton(Icons.Filled.Close, "关闭", onClick = onClose)
         }
@@ -421,10 +470,10 @@ private fun FullImageOverlay(
                 val data = info
                 InfoRow("文件名", data?.filename ?: "IMG_$handle")
                 InfoRow("格式", formatName(data?.format))
-                InfoRow("大小", fileSize?.let { String.format(Locale.US, "%.2f MB", it / 1048576.0) } ?: "—")
+                InfoRow("大小", data?.compressedSize?.let { String.format(Locale.US, "%.2f MB", it / 1048576.0) } ?: "—")
                 InfoRow(
                     "分辨率",
-                    bitmap?.let { "${it.width} × ${it.height}" }
+                    displayBitmap?.let { "${it.width} × ${it.height}" }
                         ?: data?.let { "${it.imageWidth} × ${it.imageHeight}" }
                         ?: "—",
                 )

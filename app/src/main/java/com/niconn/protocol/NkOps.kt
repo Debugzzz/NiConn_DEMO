@@ -11,6 +11,7 @@ object NkOps {
     const val GetObjectInfo = 0x1008
     const val GetObject = 0x1009
     const val GetThumb = 0x100A
+    const val GetLargeThumb = 0x90C4
     const val DeleteObject = 0x100B
     const val SetDevicePropValueEx = 0x943C
     const val DeviceReady = 0x90C8

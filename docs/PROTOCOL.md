@@ -45,6 +45,7 @@
 | 0x1007 | GetObjectHandles | 参数：存储、格式、关联；响应为句柄数组 |
 | 0x1008 | GetObjectInfo | ObjectInfo 数据集 |
 | 0x1009 / 0x100A | GetObject / GetThumb | 下载原图 / 缩略图 |
+| 0x90C4 | GetLargeThumb | 大预览（MPF 约 1620×1080，规范 6.2.3.6）；全屏查看首选，失败回退 GetObject（NEF 取内嵌 JPEG） |
 | 0x100B | DeleteObject | 删除 |
 | 0x1014 | GetDevicePropDesc | 属性枚举（实际可选值） |
 | 0x1015 / 0x1016 | Get/SetDevicePropValue | 读写 2 字节属性码，数据为裸值字节 |
@@ -81,6 +82,7 @@
 - 对象格式码：JPEG=0x3801，NEF=0x3000（MTP 支持时）/0x3800。
 - 缩略图：GetThumb；原图：GetObject（大文件需流式累积，避免内存峰值）。
 - 列表流程：GetObjectHandles 全量 1 次 + 按格式过滤 3 次（JPEG/NEF×2）得到角标，省去逐张 GetObjectInfo 的每张一个往返；缩略图按「内存 → 磁盘缓存（cacheDir/camera-thumbs/<相机>，句柄键）→ GetThumb」回源，刷新时用句柄集校验缓存，句柄消失即整册失效（防删除后句柄重排串图）。
+- 全屏查看：先显示网格缩略图，再取「磁盘大图缓存（camera-full）→ GetLargeThumb（1620px MPF 预览，几百 KB）→ GetObject 回退」，到达交叉淡入；预览字节落盘，二次打开零网络。
 
 ## 响应码
 

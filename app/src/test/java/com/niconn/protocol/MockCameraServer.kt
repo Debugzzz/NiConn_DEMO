@@ -152,7 +152,10 @@ class MockCameraServer(
                                 byteArrayOf(0, 0)
                             writeFrame(s, PtpIpCodec.encodeFrame(9, byteArrayOf(1, 0, 0, 0, info.size.toByte(), 0, 0, 0, 0, 0, 0, 0)))
                             writeFrame(s, PtpIpCodec.encodeFrame(12, byteArrayOf(1, 0, 0, 0) + info))
-                        } else if (request.opcode == NkOps.GetThumb || request.opcode == NkOps.GetObject) {
+                        } else if (request.opcode == NkOps.GetThumb ||
+                            request.opcode == NkOps.GetLargeThumb ||
+                            request.opcode == NkOps.GetObject
+                        ) {
                             writeFrame(s, PtpIpCodec.encodeFrame(9, byteArrayOf(1, 0, 0, 0, MOCK_JPEG.size.toByte(), 0, 0, 0, 0, 0, 0, 0)))
                             writeFrame(s, PtpIpCodec.encodeFrame(12, byteArrayOf(1, 0, 0, 0) + MOCK_JPEG))
                         }

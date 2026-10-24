@@ -44,6 +44,15 @@ class GalleryController(private val session: PtpIpSession) {
             .takeIf { it.code == NkOps.OK }
             ?.data
 
+    /**
+     * 大预览（规范 6.2.3.6）：约 1620×1080 的 MPF JPEG，几百 KB，
+     * 全屏查看比 GetObject 原图（3-8MB）快一个量级；相机不支持时返回 null 由调用方回退。
+     */
+    suspend fun loadLargeThumb(handle: Int): ByteArray? =
+        session.sendCommand(NkOps.GetLargeThumb, listOf(handle))
+            .takeIf { it.code == NkOps.OK }
+            ?.data
+
     /** ObjectInfo 中的 ObjectFormatCode（规范 9.2，偏移 4）。 */
     suspend fun objectFormat(handle: Int): Int? {
         val response = session.sendCommand(NkOps.GetObjectInfo, listOf(handle))

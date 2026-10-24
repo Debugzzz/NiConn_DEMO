@@ -28,6 +28,7 @@ class GalleryControllerTest {
             assertEquals(listOf(1, 2, 3), controller.listHandles())
             assertEquals(0x3801, controller.objectFormat(1))
             assertArrayEquals(MockCameraServer.MOCK_JPEG, controller.loadThumb(1))
+            assertArrayEquals(MockCameraServer.MOCK_JPEG, controller.loadLargeThumb(1))
             assertArrayEquals(MockCameraServer.MOCK_JPEG, controller.loadImage(1))
             assertTrue(controller.delete(1))
             session.close()
