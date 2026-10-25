@@ -35,11 +35,12 @@ Protocol details (frame format, pairing code, live view, gallery commands, etc.)
 
 ## Prebuilt APK
 
-- File: [release/NiConn_Demo-v0.1.3.apk](release/NiConn_Demo-v0.1.3.apk)
-- Version: **v0.1.3** (versionCode 4, debug signed)
-- Build date: 2026-10-15
-- Unit tests: 89 test cases, all passing
-- Install: allow "Install unknown apps", or `adb install -r release/NiConn_Demo-v0.1.3.apk`
+- File: [release/NiConn_Demo-v0.1.4.apk](release/NiConn_Demo-v0.1.4.apk)
+- Version: **v0.1.4** (versionCode 5, debug signed)
+- Build date: 2026-10-25
+- Unit tests: 103 test cases, all passing
+- ⚠️ This version is a **not fully verified** pre-release of performance and interaction optimizations; keep the previous package around for rollback
+- Install: allow "Install unknown apps", or `adb install -r release/NiConn_Demo-v0.1.4.apk`
 
 See [Releases](https://github.com/Debugzzz/NiConn_DEMO/releases) for previous versions.
 

@@ -35,11 +35,12 @@
 
 ## 已编译 APK
 
-- 文件：[release/NiConn_Demo-v0.1.3.apk](release/NiConn_Demo-v0.1.3.apk)
-- 版本：**v0.1.3**（versionCode 4，debug 签名）
-- 构建日期：2026-10-15
-- 单元测试：89 个用例全部通过
-- 安装：允许「安装未知来源应用」，或 `adb install -r release/NiConn_Demo-v0.1.3.apk`
+- 文件：[release/NiConn_Demo-v0.1.4.apk](release/NiConn_Demo-v0.1.4.apk)
+- 版本：**v0.1.4**（versionCode 5，debug 签名）
+- 构建日期：2026-10-25
+- 单元测试：103 个用例全部通过
+- ⚠️ 本版本为**未经完全验证**的性能与操作逻辑优化预发布，建议保留旧版安装包以备回退
+- 安装：允许「安装未知来源应用」，或 `adb install -r release/NiConn_Demo-v0.1.4.apk`
 
 历史版本见 [Releases](https://github.com/Debugzzz/NiConn_DEMO/releases)。
 
