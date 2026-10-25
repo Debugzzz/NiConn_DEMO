@@ -27,15 +27,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.niconn.service.AppSettingsStore
 
-enum class AppTab(val label: String, val icon: ImageVector) {
-    CONNECTION("连接", Icons.Filled.Wifi),
-    LIVE_VIEW("取景", Icons.Filled.PhotoCamera),
-    GALLERY("相册", Icons.Filled.PhotoLibrary),
-    WATERMARK("水印", Icons.Filled.Brush),
+enum class AppTab(@StringRes val labelRes: Int, val icon: ImageVector) {
+    CONNECTION(R.string.tab_connection, Icons.Filled.Wifi),
+    LIVE_VIEW(R.string.tab_live_view, Icons.Filled.PhotoCamera),
+    GALLERY(R.string.tab_gallery, Icons.Filled.PhotoLibrary),
+    WATERMARK(R.string.tab_watermark, Icons.Filled.Brush),
 }
 
 @Composable
@@ -77,10 +79,10 @@ fun MainScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                                         unselectedTextColor = Apple.secondaryLabel,
                                     ),
                                     icon = {
-                                        Icon(item.icon, contentDescription = item.label)
+                                        Icon(item.icon, contentDescription = stringResource(item.labelRes))
                                     },
                                     label = {
-                                        Text(item.label, fontSize = 10.sp)
+                                        Text(stringResource(item.labelRes), fontSize = 10.sp)
                                     },
                                 )
                             }

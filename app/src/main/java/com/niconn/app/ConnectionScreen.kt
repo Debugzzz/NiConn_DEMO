@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.niconn.discovery.CameraInfo
@@ -60,7 +61,7 @@ fun ConnectionScreen(viewModel: ConnectionViewModel, onOpenSettings: () -> Unit 
             Spacer(Modifier.weight(1f))
             Icon(
                 Icons.Filled.Settings,
-                contentDescription = "设置",
+                contentDescription = stringResource(R.string.settings_title),
                 tint = Apple.secondaryLabel,
             )
         }
@@ -75,24 +76,24 @@ fun ConnectionScreen(viewModel: ConnectionViewModel, onOpenSettings: () -> Unit 
                     )
                 }
                 AppleFilledButton(
-                    "开始发现",
+                    stringResource(R.string.conn_start_discovery),
                     onClick = { viewModel.startDiscovery() },
                     modifier = Modifier.padding(horizontal = 20.dp),
                 )
             }
             is ConnectionState.Discovering -> {
-                StatusCard("正在发现相机…")
+                StatusCard(stringResource(R.string.conn_discovering))
                 cameras.forEach { camera ->
                     CameraRow(camera) { viewModel.connect(camera) }
                 }
             }
             is ConnectionState.Connecting -> {
-                StatusCard("正在连接 ${current.target.instanceName}…")
+                StatusCard(stringResource(R.string.conn_connecting, current.target.instanceName))
             }
             is ConnectionState.Session -> {
                 ConnectedCard(current)
                 AppleFilledButton(
-                    "断开连接",
+                    stringResource(R.string.conn_disconnect),
                     onClick = viewModel::disconnect,
                     color = Apple.red,
                     modifier = Modifier.padding(horizontal = 20.dp),
@@ -116,7 +117,7 @@ fun ConnectionScreen(viewModel: ConnectionViewModel, onOpenSettings: () -> Unit 
                         .padding(horizontal = 32.dp, vertical = 8.dp),
                 )
                 AppleFilledButton(
-                    "重试",
+                    stringResource(R.string.conn_retry),
                     onClick = { viewModel.startDiscovery() },
                     modifier = Modifier.padding(horizontal = 20.dp),
                 )
@@ -130,9 +131,9 @@ fun ConnectionScreen(viewModel: ConnectionViewModel, onOpenSettings: () -> Unit 
 private fun GuideCard() {
     AppleCard(Modifier.padding(horizontal = 20.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            GuideStep(1, "手机开启移动热点即可")
-            GuideStep(2, "相机：网络菜单 → 连接至智能设备 → Wi-Fi 连接 (STA 模式) → 创建配置文件并连接热点，停留在配对界面")
-            GuideStep(3, "回到 App，点击「开始发现」，选择相机完成配对")
+            GuideStep(1, stringResource(R.string.conn_guide_1))
+            GuideStep(2, stringResource(R.string.conn_guide_2))
+            GuideStep(3, stringResource(R.string.conn_guide_3))
         }
     }
 }
@@ -167,12 +168,12 @@ private fun GuideStep(number: Int, text: String) {
 private fun SavedCameraCard(camera: CameraInfo, onConnect: () -> Unit, onDelete: () -> Unit) {
     AppleCard(Modifier.padding(horizontal = 20.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("连接过的相机", color = Apple.secondaryLabel, fontSize = 13.sp)
+            Text(stringResource(R.string.conn_saved_title), color = Apple.secondaryLabel, fontSize = 13.sp)
             Text(camera.instanceName, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             Text(camera.host, color = Apple.secondaryLabel, fontSize = 13.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "连接",
+                    stringResource(R.string.conn_connect),
                     color = Apple.blue,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -182,7 +183,7 @@ private fun SavedCameraCard(camera: CameraInfo, onConnect: () -> Unit, onDelete:
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                 )
                 Text(
-                    "删除记录",
+                    stringResource(R.string.conn_delete_record),
                     color = Apple.red,
                     fontSize = 17.sp,
                     modifier = Modifier
@@ -235,7 +236,7 @@ private fun CameraRow(camera: CameraInfo, onClick: () -> Unit) {
                     Text(it, fontSize = 13.sp, color = Apple.secondaryLabel)
                 }
             }
-            Text("连接", color = Apple.blue, fontSize = 17.sp)
+            Text(stringResource(R.string.conn_connect), color = Apple.blue, fontSize = 17.sp)
             Icon(
                 Icons.Filled.ChevronRight,
                 contentDescription = null,
@@ -261,7 +262,7 @@ private fun ConnectedCard(current: ConnectionState.Session) {
                         .background(Apple.green, CircleShape),
                 )
                 Text(
-                    "已连接",
+                    stringResource(R.string.conn_connected),
                     color = Apple.label,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -270,7 +271,7 @@ private fun ConnectedCard(current: ConnectionState.Session) {
             }
             HorizontalDivider(thickness = 0.5.dp, color = Apple.separator,
                 modifier = Modifier.padding(start = 16.dp))
-            InfoRow("型号 / 序列号", current.info.modelSerial)
+            InfoRow(stringResource(R.string.conn_model_serial), current.info.modelSerial)
             HorizontalDivider(thickness = 0.5.dp, color = Apple.separator,
                 modifier = Modifier.padding(start = 16.dp))
             InfoRow("GUID", current.info.guid)
@@ -300,7 +301,7 @@ private fun PairingCard(code: String, onReconnect: () -> Unit, onCancel: () -> U
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("配对成功", color = Apple.blue, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            Text(stringResource(R.string.conn_pairing_success), color = Apple.blue, fontWeight = FontWeight.Bold, fontSize = 17.sp)
             Text(
                 code,
                 fontSize = 40.sp,
@@ -308,13 +309,13 @@ private fun PairingCard(code: String, onReconnect: () -> Unit, onCancel: () -> U
                 letterSpacing = 4.sp,
             )
             Text(
-                "请在相机上按 OK，等待相机显示「正在连接」，然后点击重新连接。",
+                stringResource(R.string.conn_pairing_hint),
                 fontSize = 13.sp,
                 color = Apple.secondaryLabel,
                 textAlign = TextAlign.Center,
             )
         }
     }
-    AppleFilledButton("重新连接", onClick = onReconnect, modifier = Modifier.padding(horizontal = 20.dp))
-    AppleGrayButton("取消", onClick = onCancel, modifier = Modifier.padding(horizontal = 20.dp))
+    AppleFilledButton(stringResource(R.string.conn_reconnect), onClick = onReconnect, modifier = Modifier.padding(horizontal = 20.dp))
+    AppleGrayButton(stringResource(R.string.conn_cancel), onClick = onCancel, modifier = Modifier.padding(horizontal = 20.dp))
 }

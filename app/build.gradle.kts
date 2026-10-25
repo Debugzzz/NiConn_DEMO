@@ -46,6 +46,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.0")
+    // 应用内语言切换（AppCompatDelegate.setApplicationLocales，minSdk 26 兼容）
+    implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     // 需要读取 LensModel / PhotographicSensitivity：android.media.ExifInterface 不支持这些 tag
     implementation("androidx.exifinterface:exifinterface:1.4.1")

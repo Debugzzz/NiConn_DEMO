@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.NiConn" parent="android:style/Theme.Material.Light.NoActionBar">
+    <!-- AppCompat 系主题：应用内语言切换（AppCompatDelegate）要求 Activity 为
+         AppCompatActivity 且主题继承 Theme.AppCompat.* -->
+    <style name="Theme.NiConn" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowBackground">#F2F2F7</item>
         <item name="android:statusBarColor">#F2F2F7</item>
         <item name="android:navigationBarColor">#FFFFFF</item>

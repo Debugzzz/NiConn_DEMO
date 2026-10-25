@@ -9,7 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
+import com.niconn.app.AppLanguage
+import com.niconn.app.R
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,15 +25,15 @@ import java.io.FileOutputStream
 import kotlin.random.Random
 
 /** 版式枚举（仅保留复刻自 photix-mark-web 的经典与艺术两种）。 */
-enum class WatermarkStyle(val label: String) {
-    CLASSIC("经典版式"),
-    ART("艺术版式"),
+enum class WatermarkStyle(@StringRes val labelRes: Int) {
+    CLASSIC(R.string.wm_style_classic),
+    ART(R.string.wm_style_art),
 }
 
 /** 渲染阶段状态。 */
 sealed interface WatermarkState {
     data object Idle : WatermarkState
-    data class NoImage(val hint: String = "从相册选择一张照片开始") : WatermarkState
+    data class NoImage(@StringRes val hintRes: Int = R.string.wm_pick) : WatermarkState
     data object Loading : WatermarkState
     data class Ready(val exif: WatermarkExif) : WatermarkState
     data class Error(val message: String) : WatermarkState
@@ -86,7 +89,7 @@ class WatermarkViewModel : ViewModel() {
             try {
                 val bitmap = withContext(Dispatchers.IO) {
                     decodeSampledBitmap(context, uri, maxDim = 2400)
-                } ?: throw IllegalStateException("无法解码所选图片")
+                } ?: throw IllegalStateException(AppLanguage.tr("无法解码所选图片", "Cannot decode the selected image"))
                 sourceBitmap?.let { if (it !== bitmap) it.recycle() }
                 sourceBitmap = bitmap
                 com.niconn.AppLog.d(
@@ -109,7 +112,7 @@ class WatermarkViewModel : ViewModel() {
                 render()
             } catch (e: Exception) {
                 com.niconn.AppLog.d("WM", "选图失败: ${e::class.java.simpleName}: ${e.message}")
-                _state.value = WatermarkState.Error(e.message ?: "读取图片失败")
+                _state.value = WatermarkState.Error(e.message ?: AppLanguage.tr("读取图片失败", "Failed to load image"))
             }
         }
     }
@@ -164,7 +167,7 @@ class WatermarkViewModel : ViewModel() {
                         )
                     }
                 } catch (e: Exception) {
-                    _state.value = WatermarkState.Error(e.message ?: "渲染失败")
+                    _state.value = WatermarkState.Error(e.message ?: AppLanguage.tr("渲染失败", "Rendering failed"))
                     null
                 }
             }

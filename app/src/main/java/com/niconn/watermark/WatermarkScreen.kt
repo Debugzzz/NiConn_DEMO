@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.niconn.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -98,14 +100,14 @@ fun WatermarkScreen() {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             // 顶部大标题
             Text(
-                "水印",
+                stringResource(R.string.wm_title),
                 color = Apple.label,
                 fontSize = 34.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp),
             )
             Text(
-                "为照片添加专业水印，支持经典 / 艺术 / 个性文字三种版式",
+                stringResource(R.string.wm_subtitle),
                 color = Apple.secondaryLabel,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(horizontal = 20.dp),
@@ -132,7 +134,7 @@ fun WatermarkScreen() {
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            s.label,
+                            stringResource(s.labelRes),
                             color = if (selected) Color.White else Apple.label,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
@@ -172,7 +174,7 @@ fun WatermarkScreen() {
                     ) {
                         Image(
                             bitmap = current.asImageBitmap(),
-                            contentDescription = "水印预览",
+                            contentDescription = stringResource(R.string.wm_preview_desc),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .aspectRatio(current.width.toFloat() / current.height.toFloat()),
@@ -221,7 +223,7 @@ fun WatermarkScreen() {
                             modifier = Modifier.size(44.dp),
                         )
                         Spacer(Modifier.height(8.dp))
-                        Text("从相册选择照片", color = Apple.secondaryLabel, fontSize = 14.sp)
+                        Text(stringResource(R.string.wm_pick), color = Apple.secondaryLabel, fontSize = 14.sp)
                         Spacer(Modifier.height(4.dp))
                         Text("JPG / NEF", color = Apple.secondaryLabel, fontSize = 12.sp)
                     }
@@ -239,28 +241,28 @@ fun WatermarkScreen() {
                             .background(Apple.surface)
                             .padding(14.dp),
                     ) {
-                        Text("照片信息", color = Apple.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.gallery_info_title), color = Apple.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.height(6.dp))
                         if (e.cameraLabel().isNotBlank()) {
-                            InfoRow("相机", e.cameraLabel())
+                            InfoRow(stringResource(R.string.info_camera_short), e.cameraLabel())
                         }
                         if (!e.lensModel.isNullOrBlank()) {
-                            InfoRow("镜头", e.lensModel!!)
+                            InfoRow(stringResource(R.string.info_lens), e.lensModel!!)
                         }
                         if (!e.focalLength.isNullOrBlank()) {
-                            InfoRow("焦距", e.focalLength!!)
+                            InfoRow(stringResource(R.string.info_focal), e.focalLength!!)
                         }
                         if (!e.fNumber.isNullOrBlank()) {
-                            InfoRow("光圈", e.fNumber!!)
+                            InfoRow(stringResource(R.string.info_aperture), e.fNumber!!)
                         }
                         if (!e.exposureTime.isNullOrBlank()) {
-                            InfoRow("快门", e.exposureTime!!)
+                            InfoRow(stringResource(R.string.info_shutter), e.exposureTime!!)
                         }
                         if (!e.iso.isNullOrBlank()) {
                             InfoRow("ISO", e.iso!!)
                         }
                         if (!e.dateTimeOriginal.isNullOrBlank()) {
-                            InfoRow("时间", e.dateTimeOriginal!!)
+                            InfoRow(stringResource(R.string.info_time), e.dateTimeOriginal!!)
                         }
                     }
                 }
@@ -296,11 +298,11 @@ fun WatermarkScreen() {
                                         // 只显示文件名；完整目录可用下方「打开保存文件夹」查看
                                         Toast.makeText(
                                             context,
-                                            "已保存：${path.substringAfterLast('/')}",
+                                            context.getString(R.string.wm_saved, path.substringAfterLast('/')),
                                             Toast.LENGTH_LONG,
                                         ).show()
                                     }.onFailure {
-                                        Toast.makeText(context, "保存失败: ${it.message}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.wm_save_failed, it.message ?: ""), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }
@@ -310,7 +312,7 @@ fun WatermarkScreen() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Save, null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("保存图片", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.wm_save), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     Box(
@@ -340,7 +342,7 @@ fun WatermarkScreen() {
                         if (!WatermarkStorage.openFolder(context)) {
                             Toast.makeText(
                                 context,
-                                "未找到可打开文件夹的应用；目录：${WatermarkStorage.displayPath(context)}",
+                                context.getString(R.string.wm_no_folder_app, WatermarkStorage.displayPath(context)),
                                 Toast.LENGTH_LONG,
                             ).show()
                         }
@@ -352,7 +354,7 @@ fun WatermarkScreen() {
                     Icon(Icons.Filled.FolderOpen, null, tint = Apple.blue, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "打开保存文件夹",
+                        stringResource(R.string.wm_open_folder),
                         color = Apple.blue,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
@@ -435,36 +437,36 @@ private fun SliderRow(
 
 @Composable
 private fun FieldToggles(vm: WatermarkViewModel) {
-    SectionCard("显示内容") {
-        ToggleRow("型号", vm.showModel) { vm.showModel = it; vm.updateAndRender() }
-        ToggleRow("镜头", vm.showLens) { vm.showLens = it; vm.updateAndRender() }
-        ToggleRow("焦距", vm.showFocal) { vm.showFocal = it; vm.updateAndRender() }
-        ToggleRow("光圈", vm.showAperture) { vm.showAperture = it; vm.updateAndRender() }
-        ToggleRow("快门", vm.showShutter) { vm.showShutter = it; vm.updateAndRender() }
+    SectionCard(stringResource(R.string.wm_section_display)) {
+        ToggleRow(stringResource(R.string.wm_show_model), vm.showModel) { vm.showModel = it; vm.updateAndRender() }
+        ToggleRow(stringResource(R.string.info_lens), vm.showLens) { vm.showLens = it; vm.updateAndRender() }
+        ToggleRow(stringResource(R.string.info_focal), vm.showFocal) { vm.showFocal = it; vm.updateAndRender() }
+        ToggleRow(stringResource(R.string.info_aperture), vm.showAperture) { vm.showAperture = it; vm.updateAndRender() }
+        ToggleRow(stringResource(R.string.info_shutter), vm.showShutter) { vm.showShutter = it; vm.updateAndRender() }
         ToggleRow("ISO", vm.showISO) { vm.showISO = it; vm.updateAndRender() }
-        ToggleRow("时间", vm.showDateTime) { vm.showDateTime = it; vm.updateAndRender() }
+        ToggleRow(stringResource(R.string.info_time), vm.showDateTime) { vm.showDateTime = it; vm.updateAndRender() }
     }
 }
 
 @Composable
 private fun ClassicSettings(vm: WatermarkViewModel) {
-    SectionCard("经典版式设置") {
-        ToggleRow("右侧品牌 Logo", vm.showLogo) { vm.showLogo = it; vm.updateAndRender() }
+    SectionCard(stringResource(R.string.wm_section_classic)) {
+        ToggleRow(stringResource(R.string.wm_show_logo), vm.showLogo) { vm.showLogo = it; vm.updateAndRender() }
     }
 }
 
 @Composable
 private fun ArtSettings(vm: WatermarkViewModel) {
-    SectionCard("艺术版式设置") {
+    SectionCard(stringResource(R.string.wm_section_art)) {
         SliderRow(
-            "主图边距",
+            stringResource(R.string.wm_margin),
             vm.artImageMargin,
             { vm.artImageMargin = it; vm.updateAndRender() },
             "${((vm.artImageMargin) * 100).toInt()}%",
             0.04f..0.22f,
         )
         SliderRow(
-            "背景模糊",
+            stringResource(R.string.wm_blur),
             vm.artBlurRadius,
             { vm.artBlurRadius = it; vm.updateAndRender() },
             "${((vm.artBlurRadius) * 100).toInt()}%",

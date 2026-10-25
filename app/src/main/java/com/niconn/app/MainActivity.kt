@@ -1,21 +1,24 @@
 package com.niconn.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import com.niconn.discovery.NsdCameraDiscovery
 import com.niconn.protocol.PtpIpSession
+import java.util.Locale
 import com.niconn.service.AppSettingsStore
 import com.niconn.service.CameraService
 import com.niconn.service.ClientIdentityStore
 import com.niconn.service.SavedCameraStore
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 语言切换（AppCompatDelegate）会重建 Activity；同步镜像给非组合层文案
+        AppLanguage.refresh(Locale.getDefault().language)
         val cameraService = CameraService(
             discovery = NsdCameraDiscovery(this),
             sessionFactory = { PtpIpSession() },

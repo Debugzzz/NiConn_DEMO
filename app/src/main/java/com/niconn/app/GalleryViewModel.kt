@@ -85,7 +85,7 @@ class GalleryViewModel(
     fun refresh() {
         val session = getSession()
         if (session == null) {
-            _error.value = "请先在连接页连接相机"
+            _error.value = AppLanguage.tr("请先在连接页连接相机", "Connect to a camera first")
             return
         }
         viewModelScope.launch {
@@ -108,7 +108,7 @@ class GalleryViewModel(
                 _items.value = handles.map { GalleryItem(it, label(it)) }
                 com.niconn.AppLog.d("GAL", "refresh total=${handles.size} thumbs=${_thumbs.value.size} formats=${formats.size}")
             } catch (e: Exception) {
-                _error.value = "读取相册失败：${e.message}"
+                _error.value = AppLanguage.tr("读取相册失败", "Failed to read gallery") + ": ${e.message}"
             }
         }
     }
@@ -228,7 +228,7 @@ class GalleryViewModel(
                     controller.loadImage(handle)?.let { saveToDownloads(context, "NiConn_$handle.jpg", it) }
                 }
             } catch (e: Exception) {
-                _error.value = "下载失败：${e.message}"
+                _error.value = AppLanguage.tr("下载失败", "Download failed") + ": ${e.message}"
             } finally {
                 _downloading.value = false
                 _selection.value = emptySet()
@@ -255,7 +255,7 @@ class GalleryViewModel(
                 _selection.value = emptySet()
                 com.niconn.AppLog.d("GAL", "deleted=${deleted.size} remaining=${_items.value.size}")
             } catch (e: Exception) {
-                _error.value = "删除失败：${e.message}"
+                _error.value = AppLanguage.tr("删除失败", "Delete failed") + ": ${e.message}"
             }
         }
     }

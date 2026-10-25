@@ -5,10 +5,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /** 取景轮询档位：省电(约5fps) / 均衡(约10fps) / 流畅(最高速率)。 */
-enum class FrameRateMode(val label: String, val intervalMs: Long) {
-    POWER("省电", 200),
-    BALANCED("均衡", 80),
-    SMOOTH("流畅", 33),
+enum class FrameRateMode(@androidx.annotation.StringRes val labelRes: Int, val intervalMs: Long) {
+    POWER(com.niconn.app.R.string.framerate_power, 200),
+    BALANCED(com.niconn.app.R.string.framerate_balanced, 80),
+    SMOOTH(com.niconn.app.R.string.framerate_smooth, 33),
 }
 
 /** 应用设置：持久化到 SharedPreferences，并以 StateFlow 暴露给 UI。 */

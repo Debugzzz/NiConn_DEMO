@@ -50,6 +50,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -82,7 +83,7 @@ fun LiveViewScreen(
     val wbOptions by lvViewModel.wbOptions.collectAsState()
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var landscape by rememberSaveable { mutableStateOf(settings.defaultLandscape.value) }
-    var activePicker by remember { mutableStateOf<String?>(null) }
+    var activePicker by remember { mutableStateOf<PropKey?>(null) }
     val displayFrame = remember(landscape, frame) {
         if (landscape) frame?.let { rotateBitmap(it, 90) } else frame
     }
@@ -145,10 +146,10 @@ fun LiveViewScreen(
         }
         activePicker?.let { key ->
             OptionStripOverlay(
-                title = key,
+                title = stringResource(key.titleRes),
                 values = pickerValues(key, isoOptions, shutterOptions, apertureOptions, evOptions, wbOptions),
                 current = pickerCurrent(key, lvViewModel),
-                label = pickerLabel(key),
+                label = pickerLabel(key, wbLabelTable(pickerValues(key, isoOptions, shutterOptions, apertureOptions, evOptions, wbOptions))),
                 landscape = landscape,
                 onSelect = { value ->
                     pickerSelect(key, lvViewModel, value)
@@ -180,7 +181,7 @@ fun LiveViewScreen(
         ) {
             Icon(
                 Icons.Filled.ScreenRotation,
-                contentDescription = if (landscape) "切换竖屏" else "切换横屏",
+                contentDescription = stringResource(if (landscape) R.string.lv_rotate_portrait else R.string.lv_rotate_landscape),
                 tint = Color.White,
                 modifier = Modifier.size(20.dp),
             )
@@ -195,7 +196,7 @@ fun LiveViewScreen(
                     .padding(horizontal = 28.dp, vertical = 14.dp),
             ) {
                 Text(
-                    "开始取景",
+                    stringResource(R.string.lv_start),
                     color = Color.White,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -256,7 +257,7 @@ private fun LiveViewCanvasLayers(
         displayFrame?.let {
             Image(
                 bitmap = it.asImageBitmap(),
-                contentDescription = "实时取景",
+                contentDescription = stringResource(R.string.lv_frame_desc),
                 modifier = Modifier.fillMaxSize(),
                 contentScale = if (landscape) ContentScale.Crop else ContentScale.Fit,
             )
@@ -332,8 +333,8 @@ private fun ControlsBlock(
     evOptions: List<Long>,
     wbOptions: List<Long>,
     landscape: Boolean,
-    activePicker: String?,
-    onTogglePicker: (String) -> Unit,
+    activePicker: PropKey?,
+    onTogglePicker: (PropKey) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -349,18 +350,18 @@ private fun ControlsBlock(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PropPicker(
-                "曝光",
+                PropKey.EV,
                 lvViewModel.ev.collectAsState().value,
                 rotated = landscape,
-                active = activePicker == "曝光",
-                onToggle = { onTogglePicker("曝光") },
+                active = activePicker == PropKey.EV,
+                onToggle = { onTogglePicker(PropKey.EV) },
             )
             PropPicker(
-                "白平衡",
-                lvViewModel.wb.collectAsState().value,
+                PropKey.WB,
+                wbDisplayLabel(lvViewModel.wbCode.collectAsState().value),
                 rotated = landscape,
-                active = activePicker == "白平衡",
-                onToggle = { onTogglePicker("白平衡") },
+                active = activePicker == PropKey.WB,
+                onToggle = { onTogglePicker(PropKey.WB) },
             )
         }
         Row(
@@ -369,25 +370,25 @@ private fun ControlsBlock(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PropPicker(
-                "ISO",
+                PropKey.ISO,
                 lvViewModel.iso.collectAsState().value,
                 rotated = landscape,
-                active = activePicker == "ISO",
-                onToggle = { onTogglePicker("ISO") },
+                active = activePicker == PropKey.ISO,
+                onToggle = { onTogglePicker(PropKey.ISO) },
             )
             PropPicker(
-                "快门",
+                PropKey.SHUTTER,
                 lvViewModel.shutter.collectAsState().value,
                 rotated = landscape,
-                active = activePicker == "快门",
-                onToggle = { onTogglePicker("快门") },
+                active = activePicker == PropKey.SHUTTER,
+                onToggle = { onTogglePicker(PropKey.SHUTTER) },
             )
             PropPicker(
-                "光圈",
+                PropKey.APERTURE,
                 lvViewModel.aperture.collectAsState().value,
                 rotated = landscape,
-                active = activePicker == "光圈",
-                onToggle = { onTogglePicker("光圈") },
+                active = activePicker == PropKey.APERTURE,
+                onToggle = { onTogglePicker(PropKey.APERTURE) },
             )
             ShutterButton(onClick = { lvViewModel.takePhoto() }, rotated = landscape)
         }
@@ -397,12 +398,13 @@ private fun ControlsBlock(
 /** 参数胶囊：点击打开横向选项条；横屏时自身原地旋转（文字随之可读）。 */
 @Composable
 private fun PropPicker(
-    title: String,
+    key: PropKey,
     current: String,
     rotated: Boolean = false,
     active: Boolean = false,
     onToggle: () -> Unit,
 ) {
+    val title = stringResource(key.titleRes)
     Box(
         modifier = Modifier
             .graphicsLayer { if (rotated) rotationZ = 90f }
@@ -503,47 +505,78 @@ private fun OptionStripOverlay(
 }
 
 private fun pickerValues(
-    key: String,
+    key: PropKey,
     isoOptions: List<Long>,
     shutterOptions: List<Long>,
     apertureOptions: List<Long>,
     evOptions: List<Long>,
     wbOptions: List<Long>,
 ): List<Long> = when (key) {
-    "ISO" -> isoOptions
-    "快门" -> shutterOptions
-    "光圈" -> apertureOptions
-    "曝光" -> evOptions
-    "白平衡" -> wbOptions
-    else -> emptyList()
+    PropKey.ISO -> isoOptions
+    PropKey.SHUTTER -> shutterOptions
+    PropKey.APERTURE -> apertureOptions
+    PropKey.EV -> evOptions
+    PropKey.WB -> wbOptions
 }
 
 @Composable
-private fun pickerCurrent(key: String, lvViewModel: LiveViewViewModel): String = when (key) {
-    "ISO" -> lvViewModel.iso.collectAsState().value
-    "快门" -> lvViewModel.shutter.collectAsState().value
-    "光圈" -> lvViewModel.aperture.collectAsState().value
-    "曝光" -> lvViewModel.ev.collectAsState().value
-    "白平衡" -> lvViewModel.wb.collectAsState().value
-    else -> "--"
+private fun pickerCurrent(key: PropKey, lvViewModel: LiveViewViewModel): String = when (key) {
+    PropKey.ISO -> lvViewModel.iso.collectAsState().value
+    PropKey.SHUTTER -> lvViewModel.shutter.collectAsState().value
+    PropKey.APERTURE -> lvViewModel.aperture.collectAsState().value
+    PropKey.EV -> lvViewModel.ev.collectAsState().value
+    PropKey.WB -> wbDisplayLabel(lvViewModel.wbCode.collectAsState().value)
 }
 
-private fun pickerLabel(key: String): (Long) -> String = when (key) {
-    "ISO" -> { v -> v.toString() }
-    "快门" -> { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" }
-    "光圈" -> { v -> "f/${v / 100.0}" }
-    "曝光" -> { v -> formatEvLabel(v) }
-    "白平衡" -> { v -> wbLabel(v) }
-    else -> { v -> v.toString() }
+/** WB 标签预解析表（组合上下文中一次性构建，供非组合 lambda 使用）。 */
+@Composable
+private fun wbLabelTable(values: List<Long>): Map<Long, String> =
+    values.associateWith { v -> wbDisplayLabel(v) }
+
+@Composable
+private fun pickerLabel(key: PropKey, wbLabels: Map<Long, String>): (Long) -> String = when (key) {
+    PropKey.ISO -> { v -> v.toString() }
+    PropKey.SHUTTER -> { v -> if (v >= 10000) "${v / 10000.0}s" else "1/${10000 / v}s" }
+    PropKey.APERTURE -> { v -> "f/${v / 100.0}" }
+    PropKey.EV -> { v -> formatEvLabel(v) }
+    PropKey.WB -> { v -> wbLabels[v] ?: "0x%04X".format(v) }
 }
 
-private fun pickerSelect(key: String, lvViewModel: LiveViewViewModel, value: Long) {
+private fun pickerSelect(key: PropKey, lvViewModel: LiveViewViewModel, value: Long) {
     when (key) {
-        "ISO" -> lvViewModel.setProp(PropSpecs.ISO, value)
-        "快门" -> lvViewModel.setProp(PropSpecs.SHUTTER, value)
-        "光圈" -> lvViewModel.setProp(PropSpecs.APERTURE, value)
-        "曝光" -> lvViewModel.setProp(PropSpecs.EV, value)
-        "白平衡" -> lvViewModel.setProp(PropSpecs.WHITE_BALANCE, value)
+        PropKey.ISO -> lvViewModel.setProp(PropSpecs.ISO, value)
+        PropKey.SHUTTER -> lvViewModel.setProp(PropSpecs.SHUTTER, value)
+        PropKey.APERTURE -> lvViewModel.setProp(PropSpecs.APERTURE, value)
+        PropKey.EV -> lvViewModel.setProp(PropSpecs.EV, value)
+        PropKey.WB -> lvViewModel.setProp(PropSpecs.WHITE_BALANCE, value)
+    }
+}
+
+/** 取景参数胶囊键：本地化标题经资源 id 关联（避免以文案做逻辑键）。 */
+private enum class PropKey(val titleRes: Int) {
+    EV(R.string.prop_ev),
+    WB(R.string.prop_wb),
+    ISO(R.string.prop_iso),
+    SHUTTER(R.string.prop_shutter),
+    APERTURE(R.string.prop_aperture),
+}
+
+/** 白平衡码 → 显示名（本地化），未知码回退十六进制。 */
+@Composable
+internal fun wbDisplayLabel(v: Long?): String {
+    if (v == null) return "--"
+    return when (v) {
+        0x0002L -> stringResource(R.string.wb_auto)
+        0x0004L -> stringResource(R.string.wb_daylight)
+        0x0005L -> stringResource(R.string.wb_fluorescent)
+        0x0006L -> stringResource(R.string.wb_incandescent)
+        0x0007L -> stringResource(R.string.wb_flash)
+        0x8010L -> stringResource(R.string.wb_cloudy)
+        0x8011L -> stringResource(R.string.wb_shade)
+        0x8012L -> stringResource(R.string.wb_colortemp)
+        0x8013L -> stringResource(R.string.wb_preset)
+        0x8016L -> stringResource(R.string.wb_natural)
+        else -> "0x%04X".format(v)
     }
 }
 

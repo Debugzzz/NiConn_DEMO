@@ -2,6 +2,8 @@ package com.niconn.app
 
 import android.content.Intent
 import android.net.Uri
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -42,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,43 +103,63 @@ fun SettingsDrawer(
                 val frameRate by settings.frameRate.collectAsState()
                 val defaultLandscape by settings.defaultLandscape.collectAsState()
                 val keepScreenOn by settings.keepScreenOn.collectAsState()
-                AppleSectionHeader("实时取景")
+                // 语言：应用内切换（AppCompatDelegate 持久化，Activity 自动重建）
+                AppleSectionHeader(stringResource(R.string.settings_language))
                 AppleCard(Modifier.padding(horizontal = 20.dp)) {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text("帧率", fontSize = 17.sp)
-                        Spacer(Modifier.height(8.dp))
+                        val langTags = listOf("system", "zh", "en")
+                        val langLabels = listOf(
+                            stringResource(R.string.settings_language_system),
+                            "中文",
+                            "English",
+                        )
+                        val currentTag = currentLanguageTag()
                         IosSegmented(
-                            options = FrameRateMode.entries.map { it.label },
-                            selected = frameRate.label,
+                            options = langLabels,
+                            selected = langLabels[langTags.indexOf(currentTag).coerceAtLeast(0)],
                         ) { label ->
-                            FrameRateMode.entries.firstOrNull { it.label == label }
+                            setAppLanguage(langTags[langLabels.indexOf(label)])
+                        }
+                    }
+                }
+                AppleSectionHeader(stringResource(R.string.settings_liveview))
+                AppleCard(Modifier.padding(horizontal = 20.dp)) {
+                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(stringResource(R.string.settings_frame_rate), fontSize = 17.sp)
+                        Spacer(Modifier.height(8.dp))
+                        val frameRateLabels = FrameRateMode.entries.map { stringResource(it.labelRes) }
+                        IosSegmented(
+                            options = frameRateLabels,
+                            selected = stringResource(frameRate.labelRes),
+                        ) { label ->
+                            FrameRateMode.entries.getOrNull(frameRateLabels.indexOf(label))
                                 ?.let { settings.setFrameRate(it) }
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "省电约 5fps · 均衡约 10fps · 流畅按最高速率轮询",
+                            stringResource(R.string.settings_frame_rate_hint),
                             fontSize = 12.sp,
                             color = Apple.secondaryLabel,
                         )
                         DividerInset()
                         SwitchRow(
-                            title = "默认横屏",
-                            subtitle = "进入取景页时自动旋转为横屏",
+                            title = stringResource(R.string.settings_default_landscape),
+                            subtitle = stringResource(R.string.settings_default_landscape_hint),
                             checked = defaultLandscape,
                         ) { settings.setDefaultLandscape(it) }
                         DividerInset()
                         SwitchRow(
-                            title = "屏幕常亮",
-                            subtitle = "取景页保持屏幕不锁定",
+                            title = stringResource(R.string.settings_keep_screen_on),
+                            subtitle = stringResource(R.string.settings_keep_screen_on_hint),
                             checked = keepScreenOn,
                         ) { settings.setKeepScreenOn(it) }
                     }
                 }
                 val gridColumns by settings.gridColumns.collectAsState()
-                AppleSectionHeader("相册")
+                AppleSectionHeader(stringResource(R.string.settings_gallery))
                 AppleCard(Modifier.padding(horizontal = 20.dp)) {
                     Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        Text("缩略图列数", fontSize = 17.sp)
+                        Text(stringResource(R.string.settings_grid_columns), fontSize = 17.sp)
                         Spacer(Modifier.height(8.dp))
                         IosSegmented(
                             options = listOf("3", "4", "5"),
@@ -144,28 +167,28 @@ fun SettingsDrawer(
                         ) { settings.setGridColumns(it.toInt()) }
                     }
                 }
-                AppleSectionHeader("诊断")
+                AppleSectionHeader(stringResource(R.string.settings_diagnostics))
                 val context = LocalContext.current
                 AppleCard(Modifier.padding(horizontal = 20.dp)) {
                     Column {
-                        AboutActionRow("导出日志", Icons.Filled.ChevronRight) {
+                        AboutActionRow(stringResource(R.string.settings_export_logs), Icons.Filled.ChevronRight) {
                             exportLogs(context)
                         }
                         DividerInset()
-                        AboutActionRow("清空日志", Icons.Filled.ChevronRight) {
+                        AboutActionRow(stringResource(R.string.settings_clear_logs), Icons.Filled.ChevronRight) {
                             com.niconn.AppLog.clear()
                         }
                     }
                 }
-                AppleSectionHeader("关于")
+                AppleSectionHeader(stringResource(R.string.settings_about))
                 AppleCard(Modifier.padding(horizontal = 20.dp)) {
                     Column {
-                        AboutValueRow("版本", BuildConfig.VERSION_NAME)
+                        AboutValueRow(stringResource(R.string.settings_version), BuildConfig.VERSION_NAME)
                         DividerInset()
                         AboutActionRow(
-                            label = "检查更新",
+                            label = stringResource(R.string.settings_check_update),
                             icon = Icons.Filled.ChevronRight,
-                            value = if (checking) "检查中…" else updateHint,
+                            value = if (checking) stringResource(R.string.settings_checking) else updateHint,
                         ) {
                             if (checking) return@AboutActionRow
                             checking = true
@@ -173,29 +196,29 @@ fun SettingsDrawer(
                             scope.launch {
                                 when (val result = UpdateChecker.check(BuildConfig.VERSION_NAME)) {
                                     is UpdateResult.Available -> {
-                                        updateHint = "有新版 ${result.latestVersion}"
+                                        updateHint = localString(context, R.string.settings_update_available, result.latestVersion)
                                         pendingUpdate = result
                                     }
-                                    UpdateResult.UpToDate -> updateHint = "已是最新"
-                                    is UpdateResult.Failed -> updateHint = "检查失败"
+                                    UpdateResult.UpToDate -> updateHint = context.getString(R.string.settings_up_to_date)
+                                    is UpdateResult.Failed -> updateHint = context.getString(R.string.settings_check_failed)
                                 }
                                 checking = false
                             }
                         }
                         DividerInset()
-                        AboutActionRow("GitHub 仓库", Icons.Filled.ChevronRight) {
+                        AboutActionRow(stringResource(R.string.settings_github), Icons.Filled.ChevronRight) {
                             runCatching {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL)))
                             }
                         }
                         DividerInset()
-                        AboutValueRow("开源许可", "PolyForm NC 1.0.0")
+                        AboutValueRow(stringResource(R.string.settings_license), "PolyForm NC 1.0.0")
                         DividerInset()
-                        AboutValueRow("设备支持", "尼康 Z50II（实测）")
+                        AboutValueRow(stringResource(R.string.settings_device_support), stringResource(R.string.settings_device_support_value))
                     }
                 }
                 Text(
-                    "本应用为独立实现的第三方兼容工具，与 Nikon Corporation 无隶属或合作关系。",
+                    stringResource(R.string.settings_legal),
                     fontSize = 12.sp,
                     color = Apple.secondaryLabel,
                     modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp),
@@ -203,20 +226,20 @@ fun SettingsDrawer(
 
                 pendingUpdate?.let { info ->
                     AppleAlert(
-                        title = "发现新版本 ${info.latestVersion}",
+                        title = localString(context, R.string.settings_update_dialog_title, info.latestVersion),
                         onDismiss = { pendingUpdate = null },
-                        confirmText = "前往下载",
+                        confirmText = stringResource(R.string.settings_update_go),
                         onConfirm = {
                             runCatching {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl)))
                             }
                             pendingUpdate = null
                         },
-                        dismissText = "稍后",
+                        dismissText = stringResource(R.string.settings_update_later),
                         hasBody = true,
                     ) {
                         Text(
-                            "当前版本 ${BuildConfig.VERSION_NAME}，是否前往发布页查看并下载？",
+                            localString(context, R.string.settings_update_dialog_body, BuildConfig.VERSION_NAME),
                             fontSize = 13.sp,
                             color = Apple.secondaryLabel,
                         )
@@ -225,6 +248,29 @@ fun SettingsDrawer(
             }
         }
     }
+}
+
+
+/** 非组合上下文（如协程回调）取带参本地化字符串。 */
+private fun localString(context: android.content.Context, res: Int, arg: String): String =
+    context.getString(res, arg)
+
+/** 当前应用语言标签：system / zh / en（以 AppCompatDelegate 状态为准）。 */
+private fun currentLanguageTag(): String {
+    val locales = AppCompatDelegate.getApplicationLocales()
+    return when {
+        locales.isEmpty -> "system"
+        locales[0]?.language == "zh" -> "zh"
+        else -> "en"
+    }
+}
+
+/** 应用内切换语言：system = 跟随系统；由 AppCompatDelegate 持久化并重建界面。 */
+private fun setAppLanguage(tag: String) {
+    AppCompatDelegate.setApplicationLocales(
+        if (tag == "system") LocaleListCompat.getEmptyLocaleList()
+        else LocaleListCompat.forLanguageTags(tag),
+    )
 }
 
 /** 把环形日志写入缓存文件并通过系统分享面板导出。 */
@@ -245,7 +291,7 @@ private fun exportLogs(context: android.content.Context) {
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 },
-                "导出日志",
+                context.getString(R.string.settings_export_logs),
             ),
         )
     }
@@ -270,7 +316,7 @@ private fun DrawerHeader() {
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
             )
         }
-        Text("设置", fontSize = 13.sp, color = Apple.secondaryLabel)
+        Text(stringResource(R.string.settings_title), fontSize = 13.sp, color = Apple.secondaryLabel)
     }
 }
 

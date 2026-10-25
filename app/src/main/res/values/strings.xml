@@ -1,4 +1,140 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">NiConn</string>
+
+    <!-- 底部导航 -->
+    <string name="tab_connection">连接</string>
+    <string name="tab_live_view">取景</string>
+    <string name="tab_gallery">相册</string>
+    <string name="tab_watermark">水印</string>
+
+    <!-- 连接页 -->
+    <string name="conn_start_discovery">开始发现</string>
+    <string name="conn_discovering">正在发现相机…</string>
+    <string name="conn_connecting">正在连接 %1$s…</string>
+    <string name="conn_disconnect">断开连接</string>
+    <string name="conn_retry">重试</string>
+    <string name="conn_guide_1">手机开启移动热点即可</string>
+    <string name="conn_guide_2">相机：网络菜单 → 连接至智能设备 → Wi-Fi 连接 (STA 模式) → 创建配置文件并连接热点，停留在配对界面</string>
+    <string name="conn_guide_3">回到 App，点击「开始发现」，选择相机完成配对</string>
+    <string name="conn_saved_title">连接过的相机</string>
+    <string name="conn_connect">连接</string>
+    <string name="conn_delete_record">删除记录</string>
+    <string name="conn_connected">已连接</string>
+    <string name="conn_model_serial">型号 / 序列号</string>
+    <string name="conn_pairing_success">配对成功</string>
+    <string name="conn_pairing_hint">请在相机上按 OK，等待相机显示「正在连接」，然后点击重新连接。</string>
+    <string name="conn_reconnect">重新连接</string>
+    <string name="conn_cancel">取消</string>
+
+    <!-- 设置抽屉 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_liveview">实时取景</string>
+    <string name="settings_frame_rate">帧率</string>
+    <string name="settings_frame_rate_hint">省电约 5fps · 均衡约 10fps · 流畅按最高速率轮询</string>
+    <string name="framerate_power">省电</string>
+    <string name="framerate_balanced">均衡</string>
+    <string name="framerate_smooth">流畅</string>
+    <string name="settings_default_landscape">默认横屏</string>
+    <string name="settings_default_landscape_hint">进入取景页时自动旋转为横屏</string>
+    <string name="settings_keep_screen_on">屏幕常亮</string>
+    <string name="settings_keep_screen_on_hint">取景页保持屏幕不锁定</string>
+    <string name="settings_gallery">相册</string>
+    <string name="settings_grid_columns">缩略图列数</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_system">跟随系统</string>
+    <string name="settings_diagnostics">诊断</string>
+    <string name="settings_export_logs">导出日志</string>
+    <string name="settings_clear_logs">清空日志</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_version">版本</string>
+    <string name="settings_check_update">检查更新</string>
+    <string name="settings_checking">检查中…</string>
+    <string name="settings_update_available">有新版 %1$s</string>
+    <string name="settings_up_to_date">已是最新</string>
+    <string name="settings_check_failed">检查失败</string>
+    <string name="settings_github">GitHub 仓库</string>
+    <string name="settings_license">开源许可</string>
+    <string name="settings_device_support">设备支持</string>
+    <string name="settings_device_support_value">尼康 Z50II（实测）</string>
+    <string name="settings_legal">本应用为独立实现的第三方兼容工具，与 Nikon Corporation 无隶属或合作关系。</string>
+    <string name="settings_update_dialog_title">发现新版本 %1$s</string>
+    <string name="settings_update_dialog_body">当前版本 %1$s，是否前往发布页查看并下载？</string>
+    <string name="settings_update_go">前往下载</string>
+    <string name="settings_update_later">稍后</string>
+
+    <!-- 相册 -->
+    <string name="gallery_title">照片</string>
+    <string name="gallery_count">共 %1$d 张</string>
+    <string name="gallery_download">下载 (%1$d)</string>
+    <string name="gallery_downloading">下载中…</string>
+    <string name="gallery_delete">删除</string>
+    <string name="gallery_refresh">刷新</string>
+    <string name="gallery_delete_confirm_title">删除所选图像？</string>
+    <string name="gallery_delete_confirm_body">将删除相机上的 %1$d 张图像，此操作不可恢复。</string>
+    <string name="gallery_thumb_desc">缩略图 %1$d</string>
+    <string name="gallery_preview_desc">预览</string>
+    <string name="gallery_full_desc">大图 %1$d</string>
+    <string name="gallery_selected">已选择</string>
+    <string name="gallery_info_title">照片信息</string>
+    <string name="gallery_close">关闭</string>
+    <string name="gallery_rotate">旋转</string>
+    <string name="gallery_load_failed">加载失败，请检查相机连接</string>
+    <string name="gallery_thumb_only">原图加载失败，当前显示缩略图</string>
+
+    <!-- 信息面板通用字段 -->
+    <string name="info_filename">文件名</string>
+    <string name="info_format">格式</string>
+    <string name="info_size">大小</string>
+    <string name="info_resolution">分辨率</string>
+    <string name="info_iso">ISO</string>
+    <string name="info_shutter">快门</string>
+    <string name="info_aperture">光圈</string>
+    <string name="info_focal">焦距</string>
+    <string name="info_camera">机型</string>
+    <string name="info_camera_short">相机</string>
+    <string name="info_lens">镜头</string>
+    <string name="info_date">拍摄日期</string>
+    <string name="info_time">时间</string>
+
+    <!-- 取景页 -->
+    <string name="lv_start">开始取景</string>
+    <string name="lv_rotate_landscape">切换横屏</string>
+    <string name="lv_rotate_portrait">切换竖屏</string>
+    <string name="lv_frame_desc">实时取景</string>
+    <string name="prop_ev">曝光</string>
+    <string name="prop_iso">ISO</string>
+    <string name="prop_wb">白平衡</string>
+    <string name="prop_shutter">快门</string>
+    <string name="prop_aperture">光圈</string>
+    <string name="wb_auto">自动</string>
+    <string name="wb_daylight">日光</string>
+    <string name="wb_fluorescent">荧光灯</string>
+    <string name="wb_incandescent">白炽灯</string>
+    <string name="wb_flash">闪光</string>
+    <string name="wb_cloudy">阴天</string>
+    <string name="wb_shade">背阴</string>
+    <string name="wb_colortemp">色温</string>
+    <string name="wb_preset">手动预设</string>
+    <string name="wb_natural">自然光自动</string>
+
+    <!-- 水印 -->
+    <string name="wm_title">水印</string>
+    <string name="wm_subtitle">为照片添加专业水印，支持经典 / 艺术 / 个性文字三种版式</string>
+    <string name="wm_style_classic">经典版式</string>
+    <string name="wm_style_art">艺术版式</string>
+    <string name="wm_preview_desc">水印预览</string>
+    <string name="wm_pick">从相册选择照片</string>
+    <string name="wm_saved">已保存：%1$s</string>
+    <string name="wm_save_failed">保存失败：%1$s</string>
+    <string name="wm_save">保存图片</string>
+    <string name="wm_open_folder">打开保存文件夹</string>
+    <string name="wm_no_folder_app">未找到可打开文件夹的应用；目录：%1$s</string>
+    <string name="wm_section_display">显示内容</string>
+    <string name="wm_show_model">型号</string>
+    <string name="wm_show_logo">右侧品牌 Logo</string>
+    <string name="wm_section_classic">经典版式设置</string>
+    <string name="wm_section_art">艺术版式设置</string>
+    <string name="wm_margin">主图边距</string>
+    <string name="wm_blur">背景模糊</string>
 </resources>

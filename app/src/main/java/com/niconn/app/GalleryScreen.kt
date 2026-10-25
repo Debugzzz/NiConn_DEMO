@@ -59,6 +59,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -132,9 +133,9 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                     .padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("照片", color = Apple.label, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.gallery_title), color = Apple.label, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    "共 ${items.size} 张",
+                    stringResource(R.string.gallery_count, items.size),
                     color = Apple.secondaryLabel,
                     fontSize = 15.sp,
                     modifier = Modifier.padding(start = 10.dp, top = 10.dp),
@@ -149,12 +150,12 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                 }
                 if (selection.isNotEmpty()) {
                     GalleryTextButton(
-                        if (downloading) "下载中…" else "下载 (${selection.size})",
+                        if (downloading) stringResource(R.string.gallery_downloading) else stringResource(R.string.gallery_download, selection.size),
                         enabled = !downloading,
                     ) { galleryViewModel.downloadSelected(context) }
-                    GalleryTextButton("删除", color = Apple.red) { showDeleteConfirm = true }
+                    GalleryTextButton(stringResource(R.string.gallery_delete), color = Apple.red) { showDeleteConfirm = true }
                 }
-                GalleryTextButton("刷新") { galleryViewModel.refresh() }
+                GalleryTextButton(stringResource(R.string.gallery_refresh)) { galleryViewModel.refresh() }
             }
             error?.let {
                 Text(
@@ -197,7 +198,7 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                             thumb?.let {
                                 Image(
                                     bitmap = it.asImageBitmap(),
-                                    contentDescription = "缩略图 ${item.handle}",
+                                    contentDescription = stringResource(R.string.gallery_thumb_desc, item.handle),
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = ContentScale.Crop,
                                 )
@@ -229,7 +230,7 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
                                 ) {
                                     Icon(
                                         Icons.Filled.Check,
-                                        contentDescription = "已选择",
+                                        contentDescription = stringResource(R.string.gallery_selected),
                                         tint = Color.White,
                                         modifier = Modifier.size(16.dp),
                                     )
@@ -320,15 +321,15 @@ fun GalleryScreen(viewModel: ConnectionViewModel, settings: AppSettingsStore) {
 
     if (showDeleteConfirm) {
         AppleAlert(
-            title = "删除所选图像？",
+            title = stringResource(R.string.gallery_delete_confirm_title),
             onDismiss = { showDeleteConfirm = false },
-            confirmText = "删除",
+            confirmText = stringResource(R.string.gallery_delete),
             onConfirm = { galleryViewModel.deleteSelected() },
             destructive = true,
             hasBody = true,
         ) {
             Text(
-                "将删除相机上的 ${selection.size} 张图像，此操作不可恢复。",
+                stringResource(R.string.gallery_delete_confirm_body, selection.size),
                 fontSize = 13.sp,
                 color = Apple.secondaryLabel,
             )
@@ -421,7 +422,7 @@ private fun FullImageOverlay(
             thumbnail?.let {
                 Image(
                     bitmap = it.asImageBitmap(),
-                    contentDescription = "预览",
+                    contentDescription = stringResource(R.string.gallery_preview_desc),
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer { alpha = 1f - previewAlpha },
@@ -431,7 +432,7 @@ private fun FullImageOverlay(
             preview?.let {
                 Image(
                     bitmap = it.asImageBitmap(),
-                    contentDescription = "大图 $handle",
+                    contentDescription = stringResource(R.string.gallery_full_desc, handle),
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer { alpha = previewAlpha },
@@ -442,7 +443,7 @@ private fun FullImageOverlay(
         if (content == null) {
             if (loadFailed) {
                 Text(
-                    "加载失败，请检查相机连接",
+                    stringResource(R.string.gallery_load_failed),
                     color = Color.White,
                     fontSize = 14.sp,
                     modifier = Modifier.align(Alignment.Center),
@@ -466,7 +467,7 @@ private fun FullImageOverlay(
             )
         } else if (preview == null && loadFailed) {
             Text(
-                "原图加载失败，当前显示缩略图",
+                stringResource(R.string.gallery_thumb_only),
                 color = Color.White,
                 fontSize = 12.sp,
                 modifier = Modifier
@@ -481,39 +482,39 @@ private fun FullImageOverlay(
                 .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OverlayIconButton(Icons.Filled.Info, "照片信息") {
+            OverlayIconButton(Icons.Filled.Info, stringResource(R.string.gallery_info_title)) {
                 showInfo = true
             }
-            OverlayIconButton(Icons.Filled.Refresh, "旋转") {
+            OverlayIconButton(Icons.Filled.Refresh, stringResource(R.string.gallery_rotate)) {
                 rotation = (rotation + 90) % 360
                 zoomState.reset()
             }
-            OverlayIconButton(Icons.Filled.Close, "关闭", onClick = onClose)
+            OverlayIconButton(Icons.Filled.Close, stringResource(R.string.gallery_close), onClick = onClose)
         }
         if (showInfo) {
             AppleAlert(
-                title = "照片信息",
+                title = stringResource(R.string.gallery_info_title),
                 onDismiss = { showInfo = false },
-                confirmText = "关闭",
+                confirmText = stringResource(R.string.gallery_close),
                 onConfirm = { },
                 hasBody = true,
             ) {
                 val data = info
-                InfoRow("文件名", data?.filename ?: "IMG_$handle")
-                InfoRow("格式", formatName(data?.format))
-                InfoRow("大小", data?.compressedSize?.let { String.format(Locale.US, "%.2f MB", it / 1048576.0) } ?: "—")
+                InfoRow(stringResource(R.string.info_filename), data?.filename ?: "IMG_$handle")
+                InfoRow(stringResource(R.string.info_format), formatName(data?.format))
+                InfoRow(stringResource(R.string.info_size), data?.compressedSize?.let { String.format(Locale.US, "%.2f MB", it / 1048576.0) } ?: "—")
                 InfoRow(
-                    "分辨率",
+                    stringResource(R.string.info_resolution),
                     content?.let { "${it.width} × ${it.height}" }
                         ?: data?.let { "${it.imageWidth} × ${it.imageHeight}" }
                         ?: "—",
                 )
-                InfoRow("ISO", exif?.iso ?: "—")
-                InfoRow("快门", exif?.exposure?.let { "${it}s" } ?: "—")
-                InfoRow("光圈", exif?.fNumber?.let { "f/${"%.1f".format(rationalValue(it) ?: return@let null)}" } ?: "—")
-                InfoRow("焦距", exif?.focal?.let { "${"%.1f".format(rationalValue(it) ?: return@let null)}mm" } ?: "—")
-                InfoRow("机型", exif?.model ?: "—")
-                InfoRow("拍摄日期", exif?.dateTime ?: data?.captureDate ?: "—")
+                InfoRow(stringResource(R.string.info_iso), exif?.iso ?: "—")
+                InfoRow(stringResource(R.string.info_shutter), exif?.exposure?.let { "${it}s" } ?: "—")
+                InfoRow(stringResource(R.string.info_aperture), exif?.fNumber?.let { "f/${"%.1f".format(rationalValue(it) ?: return@let null)}" } ?: "—")
+                InfoRow(stringResource(R.string.info_focal), exif?.focal?.let { "${"%.1f".format(rationalValue(it) ?: return@let null)}mm" } ?: "—")
+                InfoRow(stringResource(R.string.info_camera), exif?.model ?: "—")
+                InfoRow(stringResource(R.string.info_date), exif?.dateTime ?: data?.captureDate ?: "—")
             }
         }
     }

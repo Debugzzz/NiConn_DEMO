@@ -26,25 +26,6 @@ internal fun formatEvLabel(v: Long?): String = when {
     else -> String.format(Locale.US, "%+.1f", v / 1000.0)
 }
 
-/** 白平衡枚举值转中文名（Z50II MTP 规范 6.5.1.4）。 */
-internal fun wbLabel(v: Long?): String {
-    if (v == null) return "--"
-    return WB_NAMES[v] ?: "0x%04X".format(v)
-}
-
-private val WB_NAMES = mapOf(
-    0x0002L to "自动",
-    0x0004L to "日光",
-    0x0005L to "荧光灯",
-    0x0006L to "白炽灯",
-    0x0007L to "闪光",
-    0x8010L to "阴天",
-    0x8011L to "背阴",
-    0x8012L to "色温",
-    0x8013L to "手动预设",
-    0x8016L to "自然光自动",
-)
-
 class LiveViewViewModel(
     private val getSession: () -> PtpIpSession?,
     private val settings: AppSettingsStore? = null,
@@ -59,8 +40,8 @@ class LiveViewViewModel(
     val aperture: StateFlow<String> = _aperture
     private val _ev = MutableStateFlow("0.0")
     val ev: StateFlow<String> = _ev
-    private val _wb = MutableStateFlow("--")
-    val wb: StateFlow<String> = _wb
+    private val _wbCode = MutableStateFlow<Long?>(null)
+    val wbCode: StateFlow<Long?> = _wbCode
     private val _isoOptions = MutableStateFlow(listOf(100L, 200L, 400L, 800L, 1600L, 3200L))
     val isoOptions: StateFlow<List<Long>> = _isoOptions
     private val _shutterOptions = MutableStateFlow(listOf(1_0000L, 5_000L, 2_500L, 1_250L, 625L, 313L, 156L))
@@ -71,7 +52,10 @@ class LiveViewViewModel(
         (-15..15).map { it.toLong() * 333 }.filter { it in -5000..5000 },
     )
     val evOptions: StateFlow<List<Long>> = _evOptions
-    private val _wbOptions = MutableStateFlow(WB_NAMES.keys.toList())
+    // 白平衡可选码（Z50II MTP 规范 6.5.1.4；显示名由 UI 层本地化）
+    private val _wbOptions = MutableStateFlow(
+        listOf(0x0002L, 0x0004L, 0x0005L, 0x0006L, 0x0007L, 0x8010L, 0x8011L, 0x8012L, 0x8013L, 0x8016L),
+    )
     val wbOptions: StateFlow<List<Long>> = _wbOptions
     private val _isLive = MutableStateFlow(false)
     val isLive: StateFlow<Boolean> = _isLive
@@ -97,7 +81,7 @@ class LiveViewViewModel(
     fun start() {
         val session = getSession()
         if (session == null) {
-            _error.value = "请先在连接页连接相机"
+            _error.value = AppLanguage.tr("请先在连接页连接相机", "Connect to a camera first")
             return
         }
         if (liveController != null) return
@@ -167,9 +151,9 @@ class LiveViewViewModel(
                 _shutter.value = formatShutter(props.read(PropSpecs.SHUTTER))
                 _aperture.value = formatAperture(props.read(PropSpecs.APERTURE))
                 _ev.value = formatEvLabel(props.read(PropSpecs.EV))
-                _wb.value = wbLabel(props.read(PropSpecs.WHITE_BALANCE))
+                _wbCode.value = props.read(PropSpecs.WHITE_BALANCE)
             } catch (e: Exception) {
-                _error.value = "读取参数失败：${e.message}"
+                _error.value = AppLanguage.tr("读取参数失败", "Failed to read parameters") + ": ${e.message}"
             }
         }
     }
@@ -189,7 +173,7 @@ class LiveViewViewModel(
                     listOf(0xFFFFFFFF.toInt(), 0),
                 )
                 if (capture.code != NkOps.OK) {
-                    _error.value = "拍摄失败：相机返回 0x%04X".format(capture.code)
+                    _error.value = AppLanguage.tr("拍摄失败", "Capture failed") + ": 0x%04X".format(capture.code)
                     return@launch
                 }
                 repeat(20) {
@@ -199,14 +183,14 @@ class LiveViewViewModel(
                         return@launch
                     }
                     if (!isBusyCode(ready.code)) {
-                        _error.value = "拍摄失败：相机返回 0x%04X".format(ready.code)
+                        _error.value = AppLanguage.tr("拍摄失败", "Capture failed") + ": 0x%04X".format(ready.code)
                         return@launch
                     }
                     delay(100)
                 }
-                _error.value = "拍摄超时"
+                _error.value = AppLanguage.tr("拍摄超时", "Capture timed out")
             } catch (e: Exception) {
-                _error.value = "拍摄失败：${e.message}"
+                _error.value = AppLanguage.tr("拍摄失败", "Capture failed") + ": ${e.message}"
             }
         }
     }
@@ -242,12 +226,12 @@ class LiveViewViewModel(
                     area = session.sendCommand(NkOps.ChangeAfArea, listOf(wholeX, wholeY))
                 }
                 if (area.code != NkOps.OK) {
-                    _error.value = "对焦区域设置失败 0x%04X".format(area.code)
+                    _error.value = AppLanguage.tr("对焦区域设置失败", "AF area failed") + ": 0x%04X".format(area.code)
                     return@launch
                 }
                 val af = session.sendCommand(NkOps.AfDrive)
                 if (af.code != NkOps.OK && af.code != NkOps.DEVICE_BUSY) {
-                    _error.value = "对焦失败 0x%04X".format(af.code)
+                    _error.value = AppLanguage.tr("对焦失败", "Focus failed") + ": 0x%04X".format(af.code)
                     return@launch
                 }
                 // SnapBridge AfDriveAction：AfDrive 后轮询 DeviceReady，直到对焦完成（最多 5s）
@@ -265,22 +249,22 @@ class LiveViewViewModel(
                                 delay(120)
                                 session.sendCommand(NkOps.AfDrive)
                             } else {
-                                _error.value = "未合焦（对焦点缺少对比度，请换个位置）"
+                                _error.value = AppLanguage.tr("未合焦（对焦点缺少对比度，请换个位置）", "Out of focus (no contrast at the point; try another spot)")
                                 return@launch
                             }
                         }
                         else -> {
                             if (!isBusyCode(ready.code)) {
-                                _error.value = "对焦失败 0x%04X".format(ready.code)
+                                _error.value = AppLanguage.tr("对焦失败", "Focus failed") + ": 0x%04X".format(ready.code)
                                 return@launch
                             }
                             delay(100)
                         }
                     }
                 }
-                _error.value = "对焦超时"
+                _error.value = AppLanguage.tr("对焦超时", "Focus timed out")
             } catch (e: Exception) {
-                _error.value = "对焦命令失败：${e.message}"
+                _error.value = AppLanguage.tr("对焦命令失败", "Focus command failed") + ": ${e.message}"
             }
         }
     }
@@ -294,7 +278,7 @@ class LiveViewViewModel(
             try {
                 val props = DevicePropController(session)
                 if (!props.write(spec, value)) {
-                    _error.value = "设置失败：相机拒绝了该参数（可能当前拍摄模式不允许）"
+                    _error.value = AppLanguage.tr("设置失败：相机拒绝了该参数（可能当前拍摄模式不允许）", "Set failed: the camera rejected the value (possibly not allowed in the current mode)")
                     return@launch
                 }
                 when (spec) {
@@ -302,12 +286,12 @@ class LiveViewViewModel(
                     PropSpecs.SHUTTER -> _shutter.value = formatShutter(props.read(PropSpecs.SHUTTER))
                     PropSpecs.APERTURE -> _aperture.value = formatAperture(props.read(PropSpecs.APERTURE))
                     PropSpecs.EV -> _ev.value = formatEvLabel(props.read(PropSpecs.EV))
-                    PropSpecs.WHITE_BALANCE -> _wb.value = wbLabel(props.read(PropSpecs.WHITE_BALANCE))
+                    PropSpecs.WHITE_BALANCE -> _wbCode.value = props.read(PropSpecs.WHITE_BALANCE)
                     else -> Unit
                 }
                 _error.value = null
             } catch (e: Exception) {
-                _error.value = "设置参数失败：${e.message}"
+                _error.value = AppLanguage.tr("设置参数失败", "Failed to set the value") + ": ${e.message}"
             }
         }
     }

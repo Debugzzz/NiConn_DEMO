@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NiConn</string>
+
+    <!-- Bottom navigation -->
+    <string name="tab_connection">Connect</string>
+    <string name="tab_live_view">Live View</string>
+    <string name="tab_gallery">Gallery</string>
+    <string name="tab_watermark">Watermark</string>
+
+    <!-- Connection -->
+    <string name="conn_start_discovery">Start Discovery</string>
+    <string name="conn_discovering">Discovering cameras…</string>
+    <string name="conn_connecting">Connecting to %1$s…</string>
+    <string name="conn_disconnect">Disconnect</string>
+    <string name="conn_retry">Retry</string>
+    <string name="conn_guide_1">Turn on your phone\'s mobile hotspot</string>
+    <string name="conn_guide_2">Camera: network menu → Connect to Smart Device → Wi-Fi connect (STA mode) → create a profile, join the hotspot and stay on the pairing screen</string>
+    <string name="conn_guide_3">Back in the app, tap "Start Discovery" and pick your camera to pair</string>
+    <string name="conn_saved_title">Previously Connected</string>
+    <string name="conn_connect">Connect</string>
+    <string name="conn_delete_record">Remove</string>
+    <string name="conn_connected">Connected</string>
+    <string name="conn_model_serial">Model / Serial</string>
+    <string name="conn_pairing_success">Pairing Complete</string>
+    <string name="conn_pairing_hint">Press OK on the camera, wait until it shows "Connecting", then tap Reconnect.</string>
+    <string name="conn_reconnect">Reconnect</string>
+    <string name="conn_cancel">Cancel</string>
+
+    <!-- Settings drawer -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_liveview">Live View</string>
+    <string name="settings_frame_rate">Frame Rate</string>
+    <string name="settings_frame_rate_hint">Power saver ~5fps · Balanced ~10fps · Smooth polls at maximum rate</string>
+    <string name="framerate_power">Power Saver</string>
+    <string name="framerate_balanced">Balanced</string>
+    <string name="framerate_smooth">Smooth</string>
+    <string name="settings_default_landscape">Landscape by Default</string>
+    <string name="settings_default_landscape_hint">Auto-rotate to landscape when entering live view</string>
+    <string name="settings_keep_screen_on">Keep Screen On</string>
+    <string name="settings_keep_screen_on_hint">Keep the screen awake on the live view page</string>
+    <string name="settings_gallery">Gallery</string>
+    <string name="settings_grid_columns">Thumbnail Columns</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System</string>
+    <string name="settings_diagnostics">Diagnostics</string>
+    <string name="settings_export_logs">Export Logs</string>
+    <string name="settings_clear_logs">Clear Logs</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_check_update">Check for Updates</string>
+    <string name="settings_checking">Checking…</string>
+    <string name="settings_update_available">New version %1$s</string>
+    <string name="settings_up_to_date">Up to date</string>
+    <string name="settings_check_failed">Check failed</string>
+    <string name="settings_github">GitHub Repository</string>
+    <string name="settings_license">License</string>
+    <string name="settings_device_support">Device Support</string>
+    <string name="settings_device_support_value">Nikon Z50II (verified)</string>
+    <string name="settings_legal">This app is an independently implemented third-party compatibility tool and is not affiliated with Nikon Corporation.</string>
+    <string name="settings_update_dialog_title">New Version %1$s</string>
+    <string name="settings_update_dialog_body">Current version %1$s. Open the release page to view and download?</string>
+    <string name="settings_update_go">Download</string>
+    <string name="settings_update_later">Later</string>
+
+    <!-- Gallery -->
+    <string name="gallery_title">Photos</string>
+    <string name="gallery_count">%1$d items</string>
+    <string name="gallery_download">Download (%1$d)</string>
+    <string name="gallery_downloading">Downloading…</string>
+    <string name="gallery_delete">Delete</string>
+    <string name="gallery_refresh">Refresh</string>
+    <string name="gallery_delete_confirm_title">Delete Selected Photos?</string>
+    <string name="gallery_delete_confirm_body">%1$d photos will be deleted from the camera. This cannot be undone.</string>
+    <string name="gallery_thumb_desc">Thumbnail %1$d</string>
+    <string name="gallery_preview_desc">Preview</string>
+    <string name="gallery_full_desc">Photo %1$d</string>
+    <string name="gallery_selected">Selected</string>
+    <string name="gallery_info_title">Photo Info</string>
+    <string name="gallery_close">Close</string>
+    <string name="gallery_rotate">Rotate</string>
+    <string name="gallery_load_failed">Load failed. Check the camera connection.</string>
+    <string name="gallery_thumb_only">Original failed to load; showing thumbnail</string>
+
+    <!-- Shared info fields -->
+    <string name="info_filename">Filename</string>
+    <string name="info_format">Format</string>
+    <string name="info_size">Size</string>
+    <string name="info_resolution">Resolution</string>
+    <string name="info_iso">ISO</string>
+    <string name="info_shutter">Shutter</string>
+    <string name="info_aperture">Aperture</string>
+    <string name="info_focal">Focal Length</string>
+    <string name="info_camera">Camera</string>
+    <string name="info_camera_short">Camera</string>
+    <string name="info_lens">Lens</string>
+    <string name="info_date">Date Taken</string>
+    <string name="info_time">Date</string>
+
+    <!-- Live view -->
+    <string name="lv_start">Start Live View</string>
+    <string name="lv_rotate_landscape">Switch to landscape</string>
+    <string name="lv_rotate_portrait">Switch to portrait</string>
+    <string name="lv_frame_desc">Live view</string>
+    <string name="prop_ev">Exposure</string>
+    <string name="prop_iso">ISO</string>
+    <string name="prop_wb">WB</string>
+    <string name="prop_shutter">Shutter</string>
+    <string name="prop_aperture">Aperture</string>
+    <string name="wb_auto">Auto</string>
+    <string name="wb_daylight">Daylight</string>
+    <string name="wb_fluorescent">Fluorescent</string>
+    <string name="wb_incandescent">Incandescent</string>
+    <string name="wb_flash">Flash</string>
+    <string name="wb_cloudy">Cloudy</string>
+    <string name="wb_shade">Shade</string>
+    <string name="wb_colortemp">Color Temperature</string>
+    <string name="wb_preset">Manual Preset</string>
+    <string name="wb_natural">Natural Light Auto</string>
+
+    <!-- Watermark -->
+    <string name="wm_title">Watermark</string>
+    <string name="wm_subtitle">Add professional watermarks — classic / art / custom-text layouts</string>
+    <string name="wm_style_classic">Classic</string>
+    <string name="wm_style_art">Art</string>
+    <string name="wm_preview_desc">Watermark preview</string>
+    <string name="wm_pick">Pick a photo</string>
+    <string name="wm_saved">Saved: %1$s</string>
+    <string name="wm_save_failed">Save failed: %1$s</string>
+    <string name="wm_save">Save Image</string>
+    <string name="wm_open_folder">Open Save Folder</string>
+    <string name="wm_no_folder_app">No app can open folders; directory: %1$s</string>
+    <string name="wm_section_display">Displayed Items</string>
+    <string name="wm_show_model">Model</string>
+    <string name="wm_show_logo">Brand logo on the right</string>
+    <string name="wm_section_classic">Classic Layout Settings</string>
+    <string name="wm_section_art">Art Layout Settings</string>
+    <string name="wm_margin">Image margin</string>
+    <string name="wm_blur">Background blur</string>
+</resources>
